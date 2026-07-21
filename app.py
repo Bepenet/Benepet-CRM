@@ -8,14 +8,14 @@ app = Flask(__name__)
 # Configurações básicas de Segurança
 app.config['SECRET_KEY'] = 'benepet_crm_secret_key_123'
 
-# 1️⃣ DETECÇÃO E AJUSTE DO BANCO DE DADOS (SQLITE / POSTGRESQL COM SSL)
+# 1️⃣ CAPTURA E CONFIGURAÇÃO DA STRING DE CONEXÃO DO BANCO
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
-# Correção para o padrão do SQLAlchemy (postgres:// para postgresql://)
+# Correção essencial para o padrão exigido pelo SQLAlchemy (de postgres:// para postgresql://)
 if base_uri.startswith("postgres://"):
     base_uri = base_uri.replace("postgres://", "postgresql://", 1)
 
-# Se for PostgreSQL (Render), força o uso de conexão SSL segura exigida pelo servidor
+# Se for PostgreSQL (Render), garante os parâmetros corretos de SSL exigidos na nuvem
 if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
     if "?" in base_uri:
         base_uri += "&sslmode=require"
@@ -25,23 +25,26 @@ if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
 app.config['SQLALCHEMY_DATABASE_URI'] = base_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicializa o banco de dados
+# Inicializa o framework do banco de dados no Flask
 db.init_app(app)
 
-# Cria as tabelas de forma segura na inicialização do app
-with app.app_context():
+# 2️⃣ INICIALIZAÇÃO SEGURA: Executa a validação do banco apenas no primeiro acesso real
+@app.before_request
+def inicializar_banco_seguro():
+    # Removemos o bloco de inicialização do fluxo de carregamento principal do Gunicorn
+    # para evitar que conflitos de portas derrubem a aplicação na subida
+    app.before_request_funcs[None].remove(inicializar_banco_seguro)
     try:
         db.create_all()
-        # Cria o admin padrão se o banco de dados estiver totalmente vazio
+        # Garante a conta administrativa padrão se o banco estiver vazio
         if not Usuario.query.first():
             usuario_padrao = Usuario(login='admin', senha='admin')
             db.session.add(usuario_padrao)
             db.session.commit()
-            print("Usuário padrão 'admin' criado com sucesso!")
     except Exception as e:
-        print(f"Aviso na inicialização do banco: {e}")
+        print(f"Alerta na verificação automática de tabelas: {e}")
 
-# --- FUNÇÃO AUXILIAR DE PROTEÇÃO DE ROTAS ---
+# --- FUNÇÃO AUXILIAR DE PROTEÇÃO DE ACESSO ---
 def usuario_esta_logado():
     return 'usuario' in session
 
@@ -56,16 +59,16 @@ def index():
 @app.route('/criar_admin_forcado')
 def criar_admin_forcado():
     try:
-        db.create_all() # Garante a criação das tabelas caso falhe antes
+        db.create_all()
         existe = Usuario.query.filter_by(login='admin').first()
         if not existe:
             usuario_padrao = Usuario(login='admin', senha='admin')
             db.session.add(usuario_padrao)
             db.session.commit()
-            return "Usuário 'admin' criado com sucesso no PostgreSQL! Pode voltar para /login."
-        return "O usuário 'admin' já existe no banco de dados."
+            return "Usuário 'admin' gerado com sucesso no PostgreSQL! Pode retornar para /login."
+        return "O usuário 'admin' já consta na base de dados ativa."
     except Exception as e:
-        return f"Erro ao criar tabelas/usuario: {str(e)}"
+        return f"Falha crítica ao tentar forçar criação: {str(e)}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -81,8 +84,8 @@ def login():
             else:
                 flash('Usuário ou senha inválidos!', 'erro')
         except Exception as e:
-            flash('Erro de conexão com o banco de dados. Tente novamente.', 'erro')
-            print(f"Erro no login: {e}")
+            flash('Conexão instável com a base de dados. Aguarde um instante e tente novamente.', 'erro')
+            print(f"Erro de autenticação: {e}")
             
     return render_template('login.html')
 
@@ -101,7 +104,7 @@ def dashboard():
         vendas_total = Venda.query.count()
         clientes = Cliente.query.all()
     except Exception as e:
-        print(f"Erro ao buscar dados do dashboard: {e}")
+        print(f"Erro ao carregar dados do dashboard: {e}")
         clientes_total, vendas_total, clientes = 0, 0, []
     
     return render_template('dashboard.html', 
