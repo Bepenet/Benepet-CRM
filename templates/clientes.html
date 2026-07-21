@@ -1,69 +1,58 @@
-<!DOCTYPE html><html lang="pt-BR"><head>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
     <meta charset="UTF-8">
-    <title>PetCRM - Clientes</title>
-    <link rel="stylesheet" href="/static/style.css"></head><body>
-    <div class="dashboard">
-        <h1>👥 Cadastro de Clientes</h1>
-
-        <form action="/clientes" method="POST" class="form-cliente">
-            <input type="text" name="nome" placeholder="Nome do Cliente" required>
-            <input type="text" name="telefone" placeholder="Telefone (ex: 47999999999)">
-            <input type="text" name="cidade" placeholder="Cidade">
-            
-            <select name="produto" required>
-                <option value="">-- Produto de Interesse --</option>
-                <option value="Tapete uso interno">Tapete uso interno</option>
-                <option value="Tapete Bag revenda">Tapete Bag revenda</option>
-                <option value="Areia Sílica">Areia Sílica</option>
-                <option value="Cata Caca">Cata Caca</option>
-            </select>
-
-            <label>Data da Compra: <input type="date" name="data_compra"></label>
-            
-            <select name="dias_retorno" required>
-                <option value="">-- Retorno em --</option>
-                <option value="7">07 dias</option>
-                <option value="15">15 dias</option>
-                <option value="30">30 dias</option>
-            </select>
-
-            <input type="text" name="observacao" placeholder="Observações">
-            
-            <button type="submit">Cadastrar Cliente</button>
+    <title>Clientes - BenePet CRM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>👥 Cadastro de Clientes</h2>
+        
+        <form method="POST" action="/clientes" style="background:#f8f9fa; padding:20px; border-radius:8px; margin-bottom:20px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <input type="text" name="nome" placeholder="Nome do Cliente" required style="padding:8px;">
+                <input type="text" name="telefone" placeholder="Telefone (WhatsApp)" required style="padding:8px;">
+                <input type="text" name="produto" placeholder="Produto de Interesse Inicial" required style="padding:8px;">
+                <input type="number" name="periodo" placeholder="Período de Retorno (dias)" value="30" required style="padding:8px;">
+            </div>
+            <button type="submit" style="background:#28a745; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">Cadastrar Cliente</button>
         </form>
 
-        <hr>
-
-        <h2>Lista de Clientes</h2>
-        <table>
-            <tr>
-                <th>Nome</th>
-                <th>Telefone</th>
-                <th>Cidade</th>
-                <th>Produto</th>
-                <th>Próximo Contato</th>
-                <th>Ações</th>
-            </tr>
-            {% for cliente in clientes %}
-            <tr>
-                <td><strong>{{ cliente.nome }}</strong></td>
-                <td>{{ cliente.telefone }}</td>
-                <td>{{ cliente.cidade }}</td>
-                <td>{{ cliente.produto }}</td>
-                <td>
-                    {% if cliente.proximo_contato and cliente.proximo_contato|length >= 10 %}
-                        {{ cliente.proximo_contato[8:10] }}/{{ cliente.proximo_contato[5:7] }}/{{ cliente.proximo_contato[0:4] }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="/excluir/{{ cliente.id }}" class="btn-excluir" onclick="return confirm('Deseja excluir este cliente?');">🗑️</a>
-                </td>
-            </tr>
-            {% endfor %}
+        <h3>Clientes Cadastrados</h3>
+        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+            <thead>
+                <tr style="background:#e9ecef; text-align:left;">
+                    <th style="padding:10px;">Nome</th>
+                    <th style="padding:10px;">Telefone</th>
+                    <th style="padding:10px;">Produto Base e Histórico</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in clientes %}
+                <tr style="border-bottom:1px solid #ddd;">
+                    <td style="padding:10px;">{{ c.nome }}</td>
+                    <td style="padding:10px;">{{ c.telefone }}</td>
+                    <td style="padding:10px;">
+                        <strong>{{ c.produto }}</strong>
+                        {% if c.vendas %}
+                            <div style="margin-top:5px;">
+                                {% for v in c.vendas %}
+                                    {% for item in v.itens %}
+                                        <span style="background:#d4edda; color:#155724; padding:2px 6px; border-radius:3px; font-size:11px; margin-right:4px;">
+                                            {{ item.produto }} (x{{ item.quantidade }})
+                                        </span>
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
-
         <br>
         <a href="/dashboard">← Voltar ao Dashboard</a>
-    </div></body></html>
+    </div>
+</body>
+</html>
