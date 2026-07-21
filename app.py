@@ -231,3 +231,36 @@ def relatorio_vendas():
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=porta)
+
+    @app.route('/venda/detalhar/<int:id>')
+def detalhar_venda(id):
+    # 1. Conecta ao banco de dados
+    conn = sqlite3.connect('benepet.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # 2. Busca os dados principais da venda (Cliente e Valor)
+    cursor.execute('''
+        SELECT vendas.*, clientes.nome AS cliente_nome 
+        FROM vendas 
+        JOIN clientes ON vendas.cliente_id = clientes.id
+        WHERE vendas.id = ?
+    ''', (id,))
+    venda = cursor.fetchone()
+    
+    # 3. Busca os produtos/itens que fazem parte dessa venda específica
+    cursor.execute('''
+        SELECT itens_venda.*, produtos.nome AS produto_nome 
+        FROM itens_venda 
+        JOIN produtos ON itens_venda.produto_id = produtos.id
+        WHERE itens_venda.venda_id = ?
+    ''', (id,))
+    itens = cursor.fetchall()
+    
+    conn.close()
+    
+    if not venda:
+        return "Venda não encontrada", 404
+        
+    # 4. Abre a mesma tela de cadastro de vendas, mas passando a venda e os itens existentes
+    return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True)

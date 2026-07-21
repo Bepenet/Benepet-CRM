@@ -2,30 +2,107 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relatório de Vendas - CRM Benepet</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        .container { padding: 20px; max-width: 1200px; margin: 0 auto; font-family: Arial, sans-serif; }
-        .voltar-btn { display: inline-block; margin-bottom: 20px; color: #007bff; text-decoration: none; }
-        .tabela-vendas { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .tabela-vendas th, .tabela-vendas td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-        .tabela-vendas th { background-color: #28a745; color: white; }
-        .tabela-vendas tr:hover { background-color: #f5f5f5; }
-        .btn-ver { background: #007bff; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 14px; }
+        .container-relatorio { 
+            padding: 30px; 
+            max-width: 1200px; 
+            margin: 30px auto; 
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .voltar-btn { 
+            display: inline-block; 
+            margin-bottom: 25px; 
+            color: #28a745; 
+            text-decoration: none; 
+            font-weight: bold;
+            transition: color 0.2s;
+        }
+        .voltar-btn:hover { 
+            color: #1e7e34; 
+        }
+        .titulo-pagina {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 10px;
+        }
+        .tabela-vendas { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+            background: #fff; 
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06); 
+        }
+        .tabela-vendas th, .tabela-vendas td { 
+            padding: 14px 18px; 
+            text-align: left; 
+            border-bottom: 1px solid #eeeeee; 
+        }
+        .tabela-vendas th { 
+            background-color: #28a745; 
+            color: white; 
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+        }
+        .tabela-vendas tr:last-child td {
+            border-bottom: none;
+        }
+        .tabela-vendas tr:hover { 
+            background-color: #f9fbf9; 
+        }
+        .status-venda {
+            background-color: #e2f5e5;
+            color: #1e7e34;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .btn-ver { 
+            background: #007bff; 
+            color: white; 
+            padding: 8px 16px; 
+            border-radius: 4px; 
+            text-decoration: none; 
+            font-size: 13px; 
+            font-weight: bold;
+            transition: background 0.2s;
+            display: inline-block;
+        }
+        .btn-ver:hover { 
+            background: #0056b3; 
+        }
+        .nenhuma-venda {
+            text-align: center;
+            color: #777;
+            padding: 30px !important;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container-relatorio">
         <a href="/dashboard" class="voltar-btn">← Voltar para o Dashboard</a>
         
-        <h2>Histórico de Vendas Lançadas</h2>
+        <h2 class="titulo-pagina">Histórico de Vendas Lançadas</h2>
         
         <table class="tabela-vendas">
             <thead>
                 <tr>
                     <th>ID da Venda</th>
                     <th>Cliente</th>
-                    <th>Data</th>
+                    <th>Data de Lançamento</th>
+                    <th>Status</th>
                     <th>Valor Total</th>
                     <th>Ações</th>
                 </tr>
@@ -36,12 +113,13 @@
                     <td>#{{ venda.id }}</td>
                     <td><strong>{{ venda.cliente_nome }}</strong></td>
                     <td>{{ venda.data }}</td>
+                    <td><span class="status-venda">Concluída</span></td>
                     <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
-                    <td><a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar</a></td>
+                    <td><a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar Venda</a></td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" style="text-align: center;">Nenhuma venda encontrada.</td>
+                    <td colspan="6" class="nenhuma-venda">Nenhuma venda encontrada no sistema até o momento.</td>
                 </tr>
                 {% endfor %}
             </tbody>
