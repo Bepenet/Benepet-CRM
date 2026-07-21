@@ -28,6 +28,19 @@ with app.app_context():
 def index():
     return redirect(url_for('login'))
 
+@app.route('/criar_admin_forcado')
+def criar_admin_forcado():
+    try:
+        existe = Usuario.query.filter_by(login='admin').first()
+        if not existe:
+            usuario_padrao = Usuario(login='admin', senha='admin')
+            db.session.add(usuario_padrao)
+            db.session.commit()
+            return "Usuário 'admin' criado com sucesso! Agora pode voltar para /login e testar."
+        return "O usuário 'admin' já existe no banco de dados."
+    except Exception as e:
+        return f"Erro ao criar: {str(e)}"
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
