@@ -30,15 +30,17 @@ def login():
         usuario = request.form.get('usuario')
         senha = request.form.get('senha')
         
+        # Procura o utilizador no banco de dados
         user = Usuario.query.filter_by(login=usuario, senha=senha).first()
         if user:
+            # O redirect envia o navegador para o dashboard usando o método GET correto
             return redirect(url_for('dashboard'))
         else:
             flash('Usuário ou senha inválidos!', 'erro')
             
     return render_template('login.html')
 
-@app.route('/dashboard', methods=['GET', 'POST'])
+@app.route('/dashboard', methods=['GET'])
 def dashboard():
     # Puxa informações para os blocos de resumo do CRM
     clientes_total = Cliente.query.count()
