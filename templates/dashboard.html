@@ -98,13 +98,13 @@
     </main>
 
     <script>
-        // Trava para verificar e exibir a tela de controle do administrador
-        const urlParams = new URLSearchParams(window.location.search);
-        const usuarioLogado = urlParams.get('user') || 'admin'; 
-        
-        if (usuarioLogado === 'admin') {
-            document.getElementById('btn-admin').style.display = 'flex';
-        }
-    </script>
+    // Recupera o usuário logado enviado de forma segura pelo servidor Flask
+    const usuarioLogado = "{{ usuario_logado }}"; 
+    
+    if (usuarioLogado === 'admin') {
+        document.getElementById('btn-admin').style.display = 'flex';
+    }
+</script>
+
 </body>
 </html>

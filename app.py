@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from datetime import datetime
 from models import db, Usuario, Cliente, Venda, ItemVenda
 
@@ -22,10 +22,16 @@ with app.app_context():
         db.session.commit()
         print("Usuário padrão 'admin' criado com sucesso!")
 
+# --- FUNÇÃO AUXILIAR DE PROTEÇÃO (DECORATOR SIMPLES) ---
+def usuario_esta_logado():
+    return 'usuario' in session
+
 # --- ROTAS DO SISTEMA ---
 
 @app.route('/')
 def index():
+    if usuario_esta_logado():
+        return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
 @app.route('/criar_admin_forcado')
@@ -49,14 +55,23 @@ def login():
         
         user = Usuario.query.filter_by(login=usuario, senha=senha).first()
         if user:
+            session['usuario'] = user.login  # Salva o usuário na sessão do navegador
             return redirect(url_for('dashboard'))
         else:
             flash('Usuário ou senha inválidos!', 'erro')
             
     return render_template('login.html')
 
+@app.route('/logout')
+def logout():
+    session.pop('usuario', None)  # Destrói o carimbo de login
+    return redirect(url_for('login'))
+
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+        
     clientes_total = Cliente.query.count()
     vendas_total = Venda.query.count()
     clientes = Cliente.query.all()
@@ -64,10 +79,14 @@ def dashboard():
     return render_template('dashboard.html', 
                            clientes_total=clientes_total, 
                            vendas_total=vendas_total, 
-                           clientes=clientes)
+                           clientes=clientes,
+                           usuario_logado=session['usuario']) # Passa o nome de quem logou para o HTML
 
 @app.route('/clientes', methods=['GET', 'POST'])
 def clientes():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+        
     if request.method == 'POST':
         nome = request.form.get('nome')
         telefone = request.form.get('telefone')
@@ -91,20 +110,19 @@ def clientes():
 
 @app.route('/vendas')
 def vendas():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+        
     clientes = Cliente.query.all()
     historico_vendas = Venda.query.order_by(Venda.data.desc()).all()
     return render_template('vendas.html', clientes=clientes, vendas=historico_vendas)
 
 @app.route('/usuarios', methods=['GET', 'POST'])
 def usuarios():
-    # Pega o login do usuário que está tentando acessar (você pode integrar com sessão depois)
-    # Por enquanto, pegamos o parâmetro ou uma validação básica para proteção
-    usuario_atual = request.args.get('user', 'comum') 
-    
-    # ⚠️ SE NÃO FOR O ADMIN, BLOQUEIA O ACESSO IMEDIATAMENTE!
-    # Nota: Para testar no navegador direto, você pode digitar /usuarios?user=admin
-    # Na próxima etapa de login com sessões (Flask-Login), isso fica 100% automático.
-    
+    if not usuario_esta_logado() or session['usuario'] != 'admin':
+        flash('Acesso restrito apenas para o administrador!', 'erro')
+        return redirect(url_for('dashboard'))
+        
     if request.method == 'POST':
         novo_login = request.form.get('usuario')
         nova_senha = request.form.get('senha')
@@ -116,15 +134,17 @@ def usuarios():
             db.session.add(novo_user)
             db.session.commit()
             flash('Usuário criado com sucesso!', 'sucesso')
-        return redirect(url_for('usuarios', user='admin'))
+        return redirect(url_for('usuarios'))
         
     lista_usuarios = Usuario.query.all()
     return render_template('usuarios.html', usuarios=lista_usuarios)
 
 @app.route('/salvar_venda_multipla', methods=['POST'])
 def salvar_venda_multipla():
+    if not usuario_esta_logado():
+        return jsonify({"erro": "Não autorizado"}), 401
+        
     dados = request.get_json()
-    
     if not dados:
         return jsonify({"erro": "Dados inválidos"}), 400
         
