@@ -7,7 +7,8 @@ app = Flask(__name__)
 
 # Configurações básicas do Banco de Dados e Segurança
 app.config['SECRET_KEY'] = 'benepet_crm_secret_key_123'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///petcrm.db'
+if app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
+    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicializa o banco de dados no Flask
