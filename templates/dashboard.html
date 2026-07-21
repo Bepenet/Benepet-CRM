@@ -1,104 +1,58 @@
-<!DOCTYPE html><html lang="pt-BR"><head>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
     <meta charset="UTF-8">
-    <title>BENEPET - CRM</title>
-    <link rel="stylesheet" href="/static/style.css"></head><body><div class="dashboard">
+    <title>Dashboard - BenePet CRM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 20px; font-family: sans-serif;">
+        <header style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 30px;">
+            <h1>🐾 BenePet CRM - Painel Principal</h1>
+            <nav>
+                <a href="/clientes" style="margin-right: 15px; text-decoration: none; font-weight: bold; color: #3498db;">👥 Clientes</a>
+                <a href="/vendas" style="text-decoration: none; font-weight: bold; color: #e74c3c;">💰 Lançar Vendas</a>
+            </nav>
+        </header>
 
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-        <div style="display: flex; align-items: center; gap: 15px;">
-            <img src="/static/logo.png" alt="BENEPET" style="max-height: 50px; width: auto;">
-            <div style="line-height: 1.2;">
-                <h1 style="margin: 0; font-size: 26px; color: #2c3e50;">BENEPET CRM</h1>
-                <h2 style="margin: 0; font-size: 14px; color: #7f8c8d;">Painel de Controle — {{ hoje }}</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+            <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; border-left: 5px solid #2196f3;">
+                <h3 style="margin: 0; color: #0d47a1;">Total de Clientes</h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 10px 0 0 0;">{{ clientes_total }}</p>
+            </div>
+            <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; border-left: 5px solid #4caf50;">
+                <h3 style="margin: 0; color: #1b5e20;">Total de Vendas</h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 10px 0 0 0;">{{ vendas_total }}</p>
             </div>
         </div>
-        <div style="text-align: right; font-size: 14px; color: #7f8c8d;">
-            Olá, <strong>{{ usuario_atual }}</strong>! | <a href="/logout" style="color: #e74c3c;">Sair 🚪</a>
+
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+            <h2>Acompanhamento de Clientes Ativos</h2>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <thead>
+                    <tr style="background: #f5f7fa; text-align: left; border-bottom: 2px solid #ddd;">
+                        <th style="padding: 12px;">Cliente</th>
+                        <th style="padding: 12px;">Contato</th>
+                        <th style="padding: 12px;">Produto Principal</th>
+                        <th style="padding: 12px;">Retorno Previsto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in clientes %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px; font-weight: bold;">{{ c.nome }}</td>
+                        <td style="padding: 12px;">{{ c.telefone }}</td>
+                        <td style="padding: 12px;">{{ c.produto }}</td>
+                        <td style="padding: 12px;"><span style="background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 13px;">{{ c.periodo_retorno }} dias</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="padding: 20px; text-align: center; color: #999;">Nenhum cliente cadastrado ainda.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-
-    <div class="cards">
-
-        <a href="/clientes" class="card">
-            <h3>👥 Clientes</h3>
-            <p>{{ total_clientes }}</p>
-        </a>
-
-        <a href="/vendas" class="card" style="border-left: 5px solid #27ae60;">
-            <h3>🛒 Vendas</h3>
-            <p>{{ total_vendas }} <span style="font-size: 16px; display: block; color: #7f8c8d;">R$ {{ "%.2f"|format(faturamento) }}</span></p>
-        </a>
-
-        <div class="card" style="border-left: 5px solid #e74c3c;">
-            <h3>🔔 Retornos Pendentes</h3>
-            <p>{{ total_retornos }}</p>
-        </div>
-
-        {% if usuario_atual == 'admin' %}
-        <a href="/usuarios" class="card" style="border-left: 5px solid #f1c40f;">
-            <h3>🔑 Usuários / Acessos</h3>
-            <p>Gerenciar</p>
-        </a>
-        {% endif %}
-
-    </div>
-
-    <hr>
-
-    <h2>📞 Clientes para Entrar em Contato Hoje</h2>
-
-    {% if clientes_retorno %}
-        <table>
-            <tr>
-                <th>Nome</th>
-                <th>Telefone</th>
-                <th>Último Produto</th>
-                <th>Data Prevista</th>
-                <th>Ações de Contato</th>
-            </tr>
-
-            {% for c in clientes_retorno %}
-            <tr>
-                <td><strong>{{ c.nome }}</strong></td>
-                <td>{{ c.telefone }}</td>
-                <td>{{ c.produto }}</td>
-                <td>
-                    {% if c.proximo_contato %}
-                        {{ c.proximo_contato[8:10] }}/{{ c.proximo_contato[5:7] }}/{{ c.proximo_contato[0:4] }}
-                    {% endif %}
-                </td>
-                <td>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        {% if c.telefone %}
-                            <a href="https://wa.me/55{{ c.telefone }}?text=Olá%20{{ c.nome }},%20tudo%20bem?%20Passando%20para%20saber%20se%20está%20precisando%20de%20mais%20{{ c.produto }}!" target="_blank" title="Enviar Mensagem" style="background: #25d366; color: white; padding: 6px 12px; border-radius: 4px; font-size: 13px;">
-                                💬 Whats
-                            </a>
-                        {% endif %}
-
-                        <form action="/dar_baixa/{{ c.id }}" method="POST" style="display: flex; gap: 5px; margin: 0;">
-                            <select name="produto" required style="padding: 5px; font-size: 12px; border-radius: 4px; border: 1px solid #ddd;">
-                                <option value="">-- Produto --</option>
-                                <option value="Tapete uso interno">Tapete uso interno</option>
-                                <option value="Tapete Bag revenda">Tapete Bag revenda</option>
-                                <option value="Areia Sílica">Areia Sílica</option>
-                                <option value="Cata Caca">Cata Caca</option>
-                            </select>
-
-                            <select name="dias" required style="padding: 5px; font-size: 12px; border-radius: 4px; border: 1px solid #ddd;">
-                                <option value="">-- Retorno em --</option>
-                                <option value="7">07 dias</option>
-                                <option value="15">15 dias</option>
-                                <option value="30">30 dias</option>
-                            </select>
-
-                            <button type="submit" style="background: #27ae60; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold;">
-                                ✓ Baixa
-                            </button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-    {% else %}
-        <p style="color: #27ae60;" class="feedback-sucesso">✅ Nenhum contato pendente para hoje! Tudo em dia por aqui.</p>
-    {% endif %}</div></body></html>
+</body>
+</html>
