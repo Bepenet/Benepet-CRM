@@ -1,31 +1,24 @@
+Python
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(50), unique=True, nullable=False)
-    senha = db.Column(db.String(255), nullable=False)
-
-    def criar_senha(self, senha_pura):
-        # Transforma a senha em um código seguro
-        self.senha = generate_password_hash(senha_pura)
-
-    def verificar_senha(self, senha_pura):
-        # Compara a senha digitada com o código seguro do banco
-        return check_password_hash(self.senha, senha_pura)
+    login = db.Column(db.String(80), unique=True, nullable=False)
+    senha = db.Column(db.String(120), nullable=False)
 
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
-    telefone = db.Column(db.String(20))
-    cidade = db.Column(db.String(50))
-    produto = db.Column(db.String(100))
-    data_compra = db.Column(db.String(10))
-    proximo_contato = db.Column(db.String(10))
-    observacao = db.Column(db.Text)
+    telefone = db.Column(db.String(20), nullable=False)
+    produto = db.Column(db.String(100), nullable=False)
+    periodo_retorno = db.Column(db.Integer, default=30)
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relação para puxar as vendas do cliente
+    vendas = db.relationship('Venda', backref='cliente', lazy=True)
 
 class Venda(db.Model):
     id = db.Column(db.Integer, primary_key=True)

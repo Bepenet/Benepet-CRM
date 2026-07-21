@@ -13,15 +13,19 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Inicializa o banco de dados no Flask
 db.init_app(app)
 
-# Cria as tabelas automaticamente se elas não existirem
+# Cria as tabelas e garante um usuário padrão para login
 with app.app_context():
     db.create_all()
+    if not Usuario.query.first():
+        usuario_padrao = Usuario(login='admin', senha='admin')
+        db.session.add(usuario_padrao)
+        db.session.commit()
+        print("Usuário padrão 'admin' criado com sucesso!")
 
 # --- ROTAS DO SISTEMA ---
 
 @app.route('/')
 def index():
-    # Tela inicial redireciona para o login ou dashboard
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -30,10 +34,8 @@ def login():
         usuario = request.form.get('usuario')
         senha = request.form.get('senha')
         
-        # Procura o utilizador no banco de dados
         user = Usuario.query.filter_by(login=usuario, senha=senha).first()
         if user:
-            # O redirect envia o navegador para o dashboard usando o método GET correto
             return redirect(url_for('dashboard'))
         else:
             flash('Usuário ou senha inválidos!', 'erro')
@@ -42,11 +44,8 @@ def login():
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    # Puxa informações para os blocos de resumo do CRM
     clientes_total = Cliente.query.count()
     vendas_total = Venda.query.count()
-    
-    # Lista de clientes cadastrados para exibição rápida
     clientes = Cliente.query.all()
     
     return render_template('dashboard.html', 
@@ -79,9 +78,7 @@ def clientes():
 
 @app.route('/vendas')
 def vendas():
-    # Rota que carrega a nova tela de vendas/carrinho
     clientes = Cliente.query.all()
-    # Puxa o histórico de vendas ordenando pelas mais recentes
     historico_vendas = Venda.query.order_by(Venda.data.desc()).all()
     return render_template('vendas.html', clientes=clientes, vendas=historico_vendas)
 
@@ -97,20 +94,17 @@ def salvar_venda_multipla():
     valor_total = dados.get('valor_total')
     itens = dados.get('itens')
     
-    # Trata a data enviada pela tela
     data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
     
     try:
-        # 1. Registra o cabeçalho da Venda
         nova_venda = Venda(
             cliente_id=cliente_id,
             data=data_venda,
             valor_total=valor_total
         )
         db.session.add(nova_venda)
-        db.session.flush() # Gera o ID da venda temporariamente
+        db.session.flush()
         
-        # 2. Registra cada item do carrinho associado a esta venda
         for item in itens:
             novo_item = ItemVenda(
                 venda_id=nova_venda.id,
@@ -121,7 +115,6 @@ def salvar_venda_multipla():
             )
             db.session.add(novo_item)
             
-        # 3. Confirma a gravação de tudo no banco
         db.session.commit()
         return jsonify({"mensagem": "Venda gravada com sucesso!"}), 200
         
@@ -130,10 +123,6 @@ def salvar_venda_multipla():
         print(f"Erro ao salvar venda: {e}")
         return jsonify({"erro": str(e)}), 500
 
-# --- INICIALIZAÇÃO DO SERVIDOR ---
-
 if __name__ == "__main__":
-    # Configuração dinâmica para rodar localmente (porta 5000) ou no Render (variável PORT)
     porta = int(os.environ.get("PORT", 5000))
-    # host="0.0.0.0" permite que o Render encontre e publique o sistema na internet
     app.run(host="0.0.0.0", port=porta)

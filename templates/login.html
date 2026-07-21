@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>BENEPET - CRM</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .login-body {
             display: flex;
@@ -11,11 +11,11 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: var(--bg-color);
+            background-color: #f5f7fa;
         }
         
         .login-card {
-            background: var(--card-bg);
+            background: white;
             padding: 40px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
@@ -53,14 +53,8 @@
             box-sizing: border-box;
         }
 
-        .login-form input:focus {
-            border-color: var(--primary-color);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-        }
-
         .login-form button {
-            background-color: #e74c3c; /* Cor vermelha aproximada da sua logo */
+            background-color: #e74c3c;
             color: white;
             border: none;
             padding: 12px;
@@ -80,10 +74,10 @@
 <body class="login-body">
 
     <div class="login-card">
-        <img src="/static/logo.png" alt="Logo BENEPET" class="login-logo">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo BENEPET" class="login-logo">
         <h2>Acesso ao sistema</h2>
 
-        <form action="/login" method="POST" class="login-form"></form>
+        <form action="/login" method="POST" class="login-form">
             <input type="text" name="usuario" placeholder="Usuário" required autofocus>
             <input type="password" name="senha" placeholder="Senha" required>
             <button type="submit">Entrar</button>
