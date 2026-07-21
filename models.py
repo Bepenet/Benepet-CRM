@@ -6,7 +6,8 @@ db = SQLAlchemy()
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     login = db.Column(db.String(80), unique=True, nullable=False)
-    senha = db.Column(db.String(120), nullable=False)
+    # Altere de db.String(120) para db.String(256)
+    senha = db.Column(db.String(256), nullable=False)
 
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)

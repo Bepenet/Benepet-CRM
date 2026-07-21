@@ -60,18 +60,15 @@ def index():
 @app.route('/criar_admin_forcado')
 def criar_admin_forcado():
     try:
+        # Derruba as tabelas antigas com o limite curto e recria com db.String(256)
+        db.drop_all() 
         db.create_all()
-        # Remove usuário admin antigo se existir para não dar conflito de hash
-        usuario_antigo = Usuario.query.filter_by(login='admin').first()
-        if usuario_antigo:
-            db.session.delete(usuario_antigo)
-            db.session.commit()
             
         senha_criptografada = generate_password_hash('admin')
         usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
         db.session.add(usuario_padrao)
         db.session.commit()
-        return "Usuário 'admin' gerado com SENHA CRIPTOGRAFADA no PostgreSQL! Pode ir para /login."
+        return "Tabelas atualizadas e Usuário 'admin' gerado com SENHA CRIPTOGRAFADA no PostgreSQL!"
     except Exception as e:
         return f"Falha ao forçar a gravação inicial: {str(e)}"
 
