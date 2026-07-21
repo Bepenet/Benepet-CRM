@@ -62,10 +62,13 @@
                 <span class="card-title">Total de Clientes</span>
                 <span class="card-value">{{ clientes_total }}</span>
             </div>
-            <div class="card card-green">
-                <span class="card-title">Total de Vendas</span>
-                <span class="card-value">{{ vendas_total }}</span>
             </div>
+            <a href="/vendas/relatorio" style="text-decoration: none; color: inherit;">
+                <div class="card card-green" style="cursor: pointer;">
+                    <span class="card-title">Total de Vendas</span>
+                    <span class="card-value">{{ vendas_total }}</span>
+                </div>
+            </a>
         </div>
 
         <div class="data-section">

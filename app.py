@@ -209,7 +209,25 @@ def salvar_venda_multipla():
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
-
+@app.route('/vendas/relatorio')
+def relatorio_vendas():
+    # 1. Conecta ao banco de dados SQLite do seu CRM
+    conn = sqlite3.connect('benepet.db') # Certifique-se de que o nome do seu banco está igual a este
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # 2. Busca todas as vendas lançadas com os nomes dos clientes
+    cursor.execute('''
+        SELECT vendas.id, vendas.data, vendas.valor_total, clientes.nome AS cliente_nome 
+        FROM vendas 
+        JOIN clientes ON vendas.cliente_id = clientes.id
+        ORDER BY vendas.data DESC
+    ''')
+    vendas = cursor.fetchall()
+    conn.close()
+    
+    # 3. Abre a nova página que vamos criar no próximo passo, passando a lista de vendas
+    return render_template('detalhe_vendas.html', vendas=vendas)
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=porta)

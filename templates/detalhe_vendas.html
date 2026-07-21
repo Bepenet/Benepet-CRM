@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Vendas - CRM Benepet</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .container { padding: 20px; max-width: 1200px; margin: 0 auto; font-family: Arial, sans-serif; }
+        .voltar-btn { display: inline-block; margin-bottom: 20px; color: #007bff; text-decoration: none; }
+        .tabela-vendas { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .tabela-vendas th, .tabela-vendas td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        .tabela-vendas th { background-color: #28a745; color: white; }
+        .tabela-vendas tr:hover { background-color: #f5f5f5; }
+        .btn-ver { background: #007bff; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/dashboard" class="voltar-btn">← Voltar para o Dashboard</a>
+        
+        <h2>Histórico de Vendas Lançadas</h2>
+        
+        <table class="tabela-vendas">
+            <thead>
+                <tr>
+                    <th>ID da Venda</th>
+                    <th>Cliente</th>
+                    <th>Data</th>
+                    <th>Valor Total</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venda in vendas %}
+                <tr>
+                    <td>#{{ venda.id }}</td>
+                    <td><strong>{{ venda.cliente_nome }}</strong></td>
+                    <td>{{ venda.data }}</td>
+                    <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
+                    <td><a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar</a></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center;">Nenhuma venda encontrada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
