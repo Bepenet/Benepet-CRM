@@ -38,7 +38,7 @@ def login():
             
     return render_template('login.html')
 
-@app.route('/dashboard')
+@app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     # Puxa informações para os blocos de resumo do CRM
     clientes_total = Cliente.query.count()
