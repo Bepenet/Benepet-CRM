@@ -8,13 +8,21 @@ app = Flask(__name__)
 # Configurações básicas de Segurança
 app.config['SECRET_KEY'] = 'benepet_crm_secret_key_123'
 
-# Detecta se está no Render (PostgreSQL) ou Local (SQLite)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
+# 1️⃣ DETECÇÃO E AJUSTE DO BANCO DE DADOS (SQLITE / POSTGRESQL COM SSL)
+base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
-# Correção obrigatória para links antigos do Heroku/Render (postgres:// para postgresql://)
-if app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
-    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
+# Correção para o padrão do SQLAlchemy (postgres:// para postgresql://)
+if base_uri.startswith("postgres://"):
+    base_uri = base_uri.replace("postgres://", "postgresql://", 1)
 
+# Se for PostgreSQL (Render), força o uso de conexão SSL segura exigida pelo servidor
+if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
+    if "?" in base_uri:
+        base_uri += "&sslmode=require"
+    else:
+        base_uri += "?sslmode=require"
+
+app.config['SQLALCHEMY_DATABASE_URI'] = base_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicializa o banco de dados
@@ -24,7 +32,7 @@ db.init_app(app)
 with app.app_context():
     try:
         db.create_all()
-        # Cria o admin padrão se o banco estiver totalmente vazio
+        # Cria o admin padrão se o banco de dados estiver totalmente vazio
         if not Usuario.query.first():
             usuario_padrao = Usuario(login='admin', senha='admin')
             db.session.add(usuario_padrao)
@@ -33,7 +41,7 @@ with app.app_context():
     except Exception as e:
         print(f"Aviso na inicialização do banco: {e}")
 
-# --- FUNÇÃO AUXILIAR DE PROTEÇÃO ---
+# --- FUNÇÃO AUXILIAR DE PROTEÇÃO DE ROTAS ---
 def usuario_esta_logado():
     return 'usuario' in session
 
@@ -88,9 +96,13 @@ def dashboard():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
         
-    clientes_total = Cliente.query.count()
-    vendas_total = Venda.query.count()
-    clientes = Cliente.query.all()
+    try:
+        clientes_total = Cliente.query.count()
+        vendas_total = Venda.query.count()
+        clientes = Cliente.query.all()
+    except Exception as e:
+        print(f"Erro ao buscar dados do dashboard: {e}")
+        clientes_total, vendas_total, clientes = 0, 0, []
     
     return render_template('dashboard.html', 
                            clientes_total=clientes_total, 
