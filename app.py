@@ -5,25 +5,35 @@ from models import db, Usuario, Cliente, Venda, ItemVenda
 
 app = Flask(__name__)
 
-# Configurações básicas do Banco de Dados e Segurança
+# Configurações básicas de Segurança
 app.config['SECRET_KEY'] = 'benepet_crm_secret_key_123'
+
+# Detecta se está no Render (PostgreSQL) ou Local (SQLite)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
+
+# Correção obrigatória para links antigos do Heroku/Render (postgres:// para postgresql://)
 if app.config['SQLALCHEMY_DATABASE_URI'].startswith("postgres://"):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace("postgres://", "postgresql://", 1)
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicializa o banco de dados no Flask
+# Inicializa o banco de dados
 db.init_app(app)
 
-# Cria as tabelas e garante um usuário padrão para login
+# Cria as tabelas de forma segura na inicialização do app
 with app.app_context():
-    db.create_all()
-    if not Usuario.query.first():
-        usuario_padrao = Usuario(login='admin', senha='admin')
-        db.session.add(usuario_padrao)
-        db.session.commit()
-        print("Usuário padrão 'admin' criado com sucesso!")
+    try:
+        db.create_all()
+        # Cria o admin padrão se o banco estiver totalmente vazio
+        if not Usuario.query.first():
+            usuario_padrao = Usuario(login='admin', senha='admin')
+            db.session.add(usuario_padrao)
+            db.session.commit()
+            print("Usuário padrão 'admin' criado com sucesso!")
+    except Exception as e:
+        print(f"Aviso na inicialização do banco: {e}")
 
-# --- FUNÇÃO AUXILIAR DE PROTEÇÃO (DECORATOR SIMPLES) ---
+# --- FUNÇÃO AUXILIAR DE PROTEÇÃO ---
 def usuario_esta_logado():
     return 'usuario' in session
 
@@ -38,15 +48,16 @@ def index():
 @app.route('/criar_admin_forcado')
 def criar_admin_forcado():
     try:
+        db.create_all() # Garante a criação das tabelas caso falhe antes
         existe = Usuario.query.filter_by(login='admin').first()
         if not existe:
             usuario_padrao = Usuario(login='admin', senha='admin')
             db.session.add(usuario_padrao)
             db.session.commit()
-            return "Usuário 'admin' criado com sucesso! Agora pode voltar para /login e testar."
+            return "Usuário 'admin' criado com sucesso no PostgreSQL! Pode voltar para /login."
         return "O usuário 'admin' já existe no banco de dados."
     except Exception as e:
-        return f"Erro ao criar: {str(e)}"
+        return f"Erro ao criar tabelas/usuario: {str(e)}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -54,18 +65,22 @@ def login():
         usuario = request.form.get('usuario')
         senha = request.form.get('senha')
         
-        user = Usuario.query.filter_by(login=usuario, senha=senha).first()
-        if user:
-            session['usuario'] = user.login  # Salva o usuário na sessão do navegador
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Usuário ou senha inválidos!', 'erro')
+        try:
+            user = Usuario.query.filter_by(login=usuario, senha=senha).first()
+            if user:
+                session['usuario'] = user.login
+                return redirect(url_for('dashboard'))
+            else:
+                flash('Usuário ou senha inválidos!', 'erro')
+        except Exception as e:
+            flash('Erro de conexão com o banco de dados. Tente novamente.', 'erro')
+            print(f"Erro no login: {e}")
             
     return render_template('login.html')
 
 @app.route('/logout')
 def logout():
-    session.pop('usuario', None)  # Destrói o carimbo de login
+    session.pop('usuario', None)
     return redirect(url_for('login'))
 
 @app.route('/dashboard', methods=['GET'])
@@ -81,7 +96,7 @@ def dashboard():
                            clientes_total=clientes_total, 
                            vendas_total=vendas_total, 
                            clientes=clientes,
-                           usuario_logado=session['usuario']) # Passa o nome de quem logou para o HTML
+                           usuario_logado=session['usuario'])
 
 @app.route('/clientes', methods=['GET', 'POST'])
 def clientes():
