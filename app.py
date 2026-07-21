@@ -191,4 +191,10 @@ with app.app_context():
         db.session.commit()
         print("👉 Usuário padrão 'admin' criado com sucesso!")
 
-app.run(debug=True)
+import os
+
+if __name__ == "__main__":
+    # O Render define automaticamente uma porta na variável de ambiente PORT
+    porta = int(os.environ.get("PORT", 5000))
+    # Vincula o host a 0.0.0.0 para que o Render consiga acessar
+    app.run(host="0.0.0.0", port=porta, debug=False)
