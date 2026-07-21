@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -29,8 +30,16 @@ class Cliente(db.Model):
 class Venda(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
-    produto = db.Column(db.String(100), nullable=False)
-    valor = db.Column(db.Float, nullable=False)
-    data_venda = db.Column(db.String(10), nullable=False)
+    data = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    valor_total = db.Column(db.Float, nullable=False)
+    
+    # Relação para puxar os itens desta venda facilmente
+    itens = db.relationship('ItemVenda', backref='venda', lazy=True, cascade="all, delete-orphan")
 
-    cliente = db.relationship('Cliente', backref=db.backref('vendas', lazy=True))
+class ItemVenda(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    venda_id = db.Column(db.Integer, db.ForeignKey('venda.id'), nullable=False)
+    produto = db.Column(db.String(100), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False)
+    valor_unitario = db.Column(db.Float, nullable=False)
+    valor_subtotal = db.Column(db.Float, nullable=False)

@@ -1,71 +1,163 @@
-<!DOCTYPE html><html lang="pt-BR"><head>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
     <meta charset="UTF-8">
-    <title>PetCRM - Vendas</title>
-    <link rel="stylesheet" href="/static/style.css"></head><body>
-    <div class="dashboard">
-        <h1>🛒 Registro de Vendas</h1>
+    <title>Registro de Vendas - BenePet CRM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .carrinho-container { margin-top: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; }
+        .btn-add { background-color: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        .btn-confirmar { background-color: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; margin-top: 15px; }
+        .table-carrinho { width: 100%; margin-top: 10px; border-collapse: collapse; }
+        .table-carrinho th, .table-carrinho td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        .total-destaque { font-size: 18px; font-weight: bold; text-align: right; margin-top: 10px; color: #2c3e50; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🛒 Registro de Pedidos / Vendas</h2>
+        
+        <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+            <div style="flex: 1;">
+                <label><strong>Selecione o Cliente:</strong></label>
+                <select id="cliente_id" class="form-control" style="width: 100%; padding: 8px;">
+                    {% for c in clientes %}
+                        <option value="{{ c.id }}">{{ c.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label><strong>Data da Venda:</strong></label>
+                <input type="date" id="data_venda" class="form-control" style="padding: 6px;">
+            </div>
+        </div>
 
-        <form action="/vendas" method="POST" class="form-cliente">
-            <label>Selecione o Cliente:
-            <select name="cliente_id" required>
-                <option value="">-- Escolha um Cliente --</option>
-                {% for cliente in clientes %}
-                    <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
-                {% endfor %}
-            </select>
-            </label>
+        <div class="carrinho-container">
+            <h4>Adicionar Produtos ao Pedido</h4>
+            <div style="display: flex; gap: 10px; align-items: flex-end; margin-top: 10px;">
+                <div style="flex: 2;">
+                    <label style="font-size: 12px;">Produto:</label>
+                    <select id="item_produto" style="width: 100%; padding: 8px;">
+                        <option value="Tapete Bag revenda">Tapete Bag revenda</option>
+                        <option value="Tapete Premium Interno">Tapete Premium Interno</option>
+                        <option value="Areia Sílica">Areia Sílica</option>
+                        <option value="Cata Caca">Cata Caca</option>
+                    </select>
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-size: 12px;">Qtd:</label>
+                    <input type="number" id="item_qtd" value="1" min="1" style="width: 100%; padding: 6px;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-size: 12px;">Valor Unitário (R$):</label>
+                    <input type="number" id="item_valor_unit" step="0.01" placeholder="0.00" style="width: 100%; padding: 6px;">
+                </div>
+                <button type="button" class="btn-add" onclick="adicionarAoCarrinho()">+ Incluir</button>
+            </div>
 
-            <label>Produto Vendido:
-            <select name="produto" required>
-                <option value="">-- Escolha o Produto --</option>
-                <option value="Tapete uso interno">Tapete uso interno</option>
-                <option value="Tapete Bag revenda">Tapete Bag revenda</option>
-                <option value="Areia Sílica">Areia Sílica</option>
-                <option value="Cata Caca">Cata Caca</option>
-            </select>
-            </label>
-
-            <label>Valor da Venda:
-            <input type="number" step="0.01" name="valor" placeholder="Digite o valor confirmado" required>
-            </label>
+            <table class="table-carrinho" id="tabela_carrinho">
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>Qtd</th>
+                        <th>Val. Unitário</th>
+                        <th>Subtotal</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
             
-            <label>Data da Venda:
-            <input type="date" name="data_venda" required>
-            </label>
-            
-            <button type="submit">Confirmar Venda</button>
-        </form>
+            <div class="total-destaque">Total do Pedido: R$ <span id="txt_total">0.00</span></div>
+        </div>
 
-        <hr>
-
-        <h2>Histórico de Vendas</h2>
-        <table>
-            <tr>
-                <th>Cliente</th>
-                <th>Produto</th>
-                <th>Valor</th>
-                <th>Data</th>
-                <th>Ações</th>
-            </tr>
-            {% for venda in vendas %}
-            <tr>
-                <td><strong>{{ venda.cliente.nome }}</strong></td>
-                <td>{{ venda.produto }}</td>
-                <td>R$ {{ "%.2f"|format(venda.valor) }}</td>
-                <td>
-                    {% if venda.data_venda and venda.data_venda|length >= 10 %}
-                        {{ venda.data_venda[8:10] }}/{{ venda.data_venda[5:7] }}/{{ venda.data_venda[0:4] }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="/excluir_venda/{{ venda.id }}" class="btn-excluir" onclick="return confirm('Tem certeza que deseja excluir esta venda?');">🗑️</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-
-        <br>
+        <button type="button" class="btn-confirmar" onclick="enviarPedido()">Salvar Venda / Pedido</button>
+        
+        <br><br>
         <a href="/dashboard">← Voltar ao Dashboard</a>
-    </div></body></html>
+    </div>
+
+    <script>
+        // Configura a data de hoje por padrão
+        document.getElementById('data_venda').valueAsDate = new Date();
+
+        let carrinho = [];
+        let totalPedido = 0;
+
+        function adicionarAoCarrinho() {
+            const produto = document.getElementById('item_produto').value;
+            const qtd = parseInt(document.getElementById('item_qtd').value);
+            const valorUnit = parseFloat(document.getElementById('item_valor_unit').value);
+
+            if (!valorUnit || valorUnit <= 0) {
+                alert("Por favor, digite um valor unitário válido.");
+                return;
+            }
+
+            const subtotal = qtd * valorUnit;
+            
+            carrinho.push({ produto, quantidade: qtd, valor_unitario: valorUnit, valor_subtotal: subtotal });
+            atualizarTabelaCarrinho();
+            
+            // Limpa o campo de valor para o próximo item
+            document.getElementById('item_valor_unit').value = '';
+            document.getElementById('item_qtd').value = 1;
+        }
+
+        function removerDoCarrinho(index) {
+            carrinho.splice(index, 1);
+            atualizarTabelaCarrinho();
+        }
+
+        function atualizarTabelaCarrinho() {
+            const tbody = document.querySelector('#tabela_carrinho tbody');
+            tbody.innerHTML = '';
+            totalPedido = 0;
+
+            carrinho.forEach((item, index) => {
+                totalPedido += item.valor_subtotal;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.produto}</td>
+                    <td>${item.quantidade}</td>
+                    <td>R$ ${item.valor_unitario.toFixed(2)}</td>
+                    <td>R$ ${item.valor_subtotal.toFixed(2)}</td>
+                    <td><button style="color:red; border:none; background:none; cursor:pointer;" onclick="removerDoCarrinho(${index})">Remover</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('txt_total').innerText = totalPedido.toFixed(2);
+        }
+
+        function enviarPedido() {
+            if (carrinho.length === 0) {
+                alert("Adicione pelo menos um produto antes de salvar a venda!");
+                return;
+            }
+
+            const dadosPedido = {
+                cliente_id: document.getElementById('cliente_id').value,
+                data: document.getElementById('data_venda').value,
+                valor_total: totalPedido,
+                itens: carrinho
+            };
+
+            fetch('/salvar_venda_multipla', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dadosPedido)
+            })
+            .then(res => {
+                if(res.ok) {
+                    alert("Pedido gravado com sucesso!");
+                    window.location.href = '/dashboard';
+                } else {
+                    alert("Erro ao gravar pedido.");
+                }
+            });
+        }
+    </script>
+</body>
+</html>
