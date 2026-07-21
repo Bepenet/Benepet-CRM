@@ -8,14 +8,14 @@ app = Flask(__name__)
 # Configurações básicas de Segurança
 app.config['SECRET_KEY'] = 'benepet_crm_secret_key_123'
 
-# 1️⃣ CAPTURA E CONFIGURAÇÃO DA STRING DE CONEXÃO DO BANCO
+# 1️⃣ CONFIGURAÇÃO DA CONEXÃO DO BANCO DE DADOS (LOCAL OU NUVEM)
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
-# Correção essencial para o padrão exigido pelo SQLAlchemy (de postgres:// para postgresql://)
+# Padronização do driver necessária para o SQLAlchemy
 if base_uri.startswith("postgres://"):
     base_uri = base_uri.replace("postgres://", "postgresql://", 1)
 
-# Se for PostgreSQL (Render), garante os parâmetros corretos de SSL exigidos na nuvem
+# Ativa o SSL exigido pelo banco do Render
 if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
     if "?" in base_uri:
         base_uri += "&sslmode=require"
@@ -25,30 +25,33 @@ if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
 app.config['SQLALCHEMY_DATABASE_URI'] = base_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicializa o framework do banco de dados no Flask
+# Inicializa o banco
 db.init_app(app)
 
-# 2️⃣ INICIALIZAÇÃO SEGURA: Executa a validação do banco apenas no primeiro acesso real
+# Variável de controle simples para rodar a criação de tabelas uma única vez
+_tabelas_verificadas = False
+
+# 2️⃣ HOOK DE INICIALIZAÇÃO SEGURO (Flag de verificação)
 @app.before_request
 def inicializar_banco_seguro():
-    # Removemos o bloco de inicialização do fluxo de carregamento principal do Gunicorn
-    # para evitar que conflitos de portas derrubem a aplicação na subida
-    app.before_request_funcs[None].remove(inicializar_banco_seguro)
-    try:
-        db.create_all()
-        # Garante a conta administrativa padrão se o banco estiver vazio
-        if not Usuario.query.first():
-            usuario_padrao = Usuario(login='admin', senha='admin')
-            db.session.add(usuario_padrao)
-            db.session.commit()
-    except Exception as e:
-        print(f"Alerta na verificação automática de tabelas: {e}")
+    global _tabelas_verificadas
+    if not _tabelas_verificadas:
+        try:
+            db.create_all()
+            # Gera a conta padrão caso a tabela esteja limpa
+            if not Usuario.query.first():
+                usuario_padrao = Usuario(login='admin', senha='admin')
+                db.session.add(usuario_padrao)
+                db.session.commit()
+            _tabelas_verificadas = True
+        except Exception as e:
+            print(f"Aviso de verificação do banco em produção: {e}")
 
-# --- FUNÇÃO AUXILIAR DE PROTEÇÃO DE ACESSO ---
+# --- FUNÇÃO DE VALIDAÇÃO DA SESSÃO ---
 def usuario_esta_logado():
     return 'usuario' in session
 
-# --- ROTAS DO SISTEMA ---
+# --- ROTAS DO FLASK ---
 
 @app.route('/')
 def index():
@@ -65,10 +68,10 @@ def criar_admin_forcado():
             usuario_padrao = Usuario(login='admin', senha='admin')
             db.session.add(usuario_padrao)
             db.session.commit()
-            return "Usuário 'admin' gerado com sucesso no PostgreSQL! Pode retornar para /login."
+            return "Usuário 'admin' gerado com sucesso no PostgreSQL! Pode ir para /login."
         return "O usuário 'admin' já consta na base de dados ativa."
     except Exception as e:
-        return f"Falha crítica ao tentar forçar criação: {str(e)}"
+        return f"Falha ao forçar a gravação inicial: {str(e)}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -84,8 +87,8 @@ def login():
             else:
                 flash('Usuário ou senha inválidos!', 'erro')
         except Exception as e:
-            flash('Conexão instável com a base de dados. Aguarde um instante e tente novamente.', 'erro')
-            print(f"Erro de autenticação: {e}")
+            flash('Conexão instável com a base de dados. Tente novamente.', 'erro')
+            print(f"Erro de login: {e}")
             
     return render_template('login.html')
 
