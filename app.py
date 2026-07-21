@@ -6,10 +6,8 @@ from models import db, Usuario, Cliente, Venda, ItemVenda
 
 app = Flask(__name__)
 
-# Configurações básicas de Segurança
 app.config['SECRET_KEY'] = 'benepet_crm_secret_key_123'
 
-# 1️⃣ CONFIGURAÇÃO DA CONEXÃO DO BANCO DE DADOS
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
 if base_uri.startswith("postgres://"):
@@ -26,17 +24,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-# Variável de controle para rodar a criação de tabelas uma única vez
 _tabelas_verificadas = False
 
-# 2️⃣ HOOK DE INICIALIZAÇÃO SEGURO COM CRIPTOGRAFIA
 @app.before_request
 def inicializar_banco_seguro():
     global _tabelas_verificadas
     if not _tabelas_verificadas:
         try:
             db.create_all()
-            # Gera a conta padrão criptografada caso a tabela esteja limpa
             if not Usuario.query.first():
                 senha_criptografada = generate_password_hash('admin')
                 usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
@@ -49,8 +44,6 @@ def inicializar_banco_seguro():
 def usuario_esta_logado():
     return 'usuario' in session
 
-# --- ROTAS DO FLASK ---
-
 @app.route('/')
 def index():
     if usuario_esta_logado():
@@ -60,17 +53,15 @@ def index():
 @app.route('/criar_admin_forcado')
 def criar_admin_forcado():
     try:
-        # Derruba as tabelas antigas com o limite curto e recria com db.String(256)
         db.drop_all() 
         db.create_all()
-            
         senha_criptografada = generate_password_hash('admin')
         usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
         db.session.add(usuario_padrao)
         db.session.commit()
-        return "Tabelas atualizadas e Usuário 'admin' gerado com SENHA CRIPTOGRAFADA no PostgreSQL!"
+        return "Banco limpo e atualizado com novos campos!"
     except Exception as e:
-        return f"Falha ao forçar a gravação inicial: {str(e)}"
+        return f"Erro: {str(e)}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -80,7 +71,6 @@ def login():
         
         try:
             user = Usuario.query.filter_by(login=usuario).first()
-            # Compara o hash seguro do banco com a senha digitada
             if user and check_password_hash(user.senha, senha):
                 session['usuario'] = user.login
                 return redirect(url_for('dashboard'))
@@ -88,7 +78,6 @@ def login():
                 flash('Usuário ou senha inválidos!', 'erro')
         except Exception as e:
             flash('Conexão instável com a base de dados. Tente novamente.', 'erro')
-            print(f"Erro de login: {e}")
             
     return render_template('login.html')
 
@@ -107,7 +96,6 @@ def dashboard():
         vendas_total = Venda.query.count()
         clientes = Cliente.query.all()
     except Exception as e:
-        print(f"Erro ao carregar dados do dashboard: {e}")
         clientes_total, vendas_total, clientes = 0, 0, []
     
     return render_template('dashboard.html', 
@@ -123,16 +111,28 @@ def clientes():
         
     if request.method == 'POST':
         nome = request.form.get('nome')
+        cpf_cnpj = request.form.get('cpf_cnpj')
+        endereco = request.form.get('endereco')
         telefone = request.form.get('telefone')
-        produto = request.form.get('produto')
-        periodo = int(request.form.get('periodo', 30))
+        contato = request.form.get('contato')
+        dias_aviso = int(request.form.get('dias_aviso', 30))
+        data_cadastro_str = request.form.get('data_cadastro')
+        
+        # Converte a data enviada pelo HTML ou assume a data/hora atual se vier vazia
+        if data_cadastro_str:
+            data_cadastro = datetime.strptime(data_cadastro_str, '%Y-%m-%d')
+        else:
+            data_cadastro = datetime.utcnow()
         
         novo_cliente = Cliente(
             nome=nome,
+            cpf_cnpj=cpf_cnpj,
+            endereco=endereco,
             telefone=telefone,
-            produto=produto,
-            periodo_retorno=periodo,
-            data_cadastro=datetime.utcnow()
+            contato=contato,
+            data_cadastro=data_cadastro,
+            dias_aviso=dias_aviso,
+            periodo_retorno=dias_aviso # Mantendo sincronia
         )
         db.session.add(novo_cliente)
         db.session.commit()
@@ -140,7 +140,9 @@ def clientes():
         return redirect(url_for('clientes'))
         
     todos_clientes = Cliente.query.all()
-    return render_template('clientes.html', clientes=todos_clientes)
+    # Pega a data de hoje formatada em AAAA-MM-DD para preencher o formulário automaticamente
+    hoje_formatado = datetime.now().strftime('%Y-%m-%d')
+    return render_template('clientes.html', clientes=todos_clientes, hoje=hoje_formatado)
 
 @app.route('/vendas')
 def vendas():
@@ -164,7 +166,6 @@ def usuarios():
         if Usuario.query.filter_by(login=novo_login).first():
             flash('Esse nome de usuário já existe!', 'erro')
         else:
-            # Criptografa a senha antes de salvar um novo usuário no sistema
             senha_segura = generate_password_hash(nova_senha)
             novo_user = Usuario(login=novo_login, senha=senha_segura)
             db.session.add(novo_user)
@@ -181,9 +182,6 @@ def salvar_venda_multipla():
         return jsonify({"erro": "Não autorizado"}), 401
         
     dados = request.get_json()
-    if not dados:
-        return jsonify({"erro": "Dados inválidos"}), 400
-        
     cliente_id = dados.get('cliente_id')
     data_str = dados.get('data')
     valor_total = dados.get('valor_total')
@@ -192,11 +190,7 @@ def salvar_venda_multipla():
     data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
     
     try:
-        nova_venda = Venda(
-            cliente_id=cliente_id,
-            data=data_venda,
-            valor_total=valor_total
-        )
+        nova_venda = Venda(cliente_id=cliente_id, data=data_venda, valor_total=valor_total)
         db.session.add(nova_venda)
         db.session.flush()
         
@@ -212,10 +206,8 @@ def salvar_venda_multipla():
             
         db.session.commit()
         return jsonify({"mensagem": "Venda gravada com sucesso!"}), 200
-        
     except Exception as e:
         db.session.rollback()
-        print(f"Erro ao salvar venda: {e}")
         return jsonify({"erro": str(e)}), 500
 
 if __name__ == "__main__":
