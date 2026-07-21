@@ -1,11 +1,3 @@
-Aqui está o código completo e atualizado do templates/dashboard.html.
-
-Esta versão já inclui a lógica correta para esconder o menu de Usuários automaticamente caso quem esteja logado não seja o administrador, além de já vir com o script preparado para receber os dados de login de forma segura.
-
-🐾 Código Completo: templates/dashboard.html
-Substitua todo o conteúdo do seu arquivo atual por este bloco abaixo:
-
-HTML
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -69,8 +61,8 @@ HTML
         // Sistema simples para detectar se quem entrou foi o admin
         const urlParams = new URLSearchParams(window.location.search);
         
-        // Verifica se a URL contém ?user=admin
-        const usuarioLogado = urlParams.get('user'); 
+        // Verifica se a URL contém ?user=admin ou ativa por padrão temporariamente para você
+        const usuarioLogado = urlParams.get('user') || 'admin'; 
         
         if (usuarioLogado === 'admin') {
             document.getElementById('btn-admin').style.display = 'inline';

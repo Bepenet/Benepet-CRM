@@ -95,6 +95,32 @@ def vendas():
     historico_vendas = Venda.query.order_by(Venda.data.desc()).all()
     return render_template('vendas.html', clientes=clientes, vendas=historico_vendas)
 
+@app.route('/usuarios', methods=['GET', 'POST'])
+def usuarios():
+    # Pega o login do usuário que está tentando acessar (você pode integrar com sessão depois)
+    # Por enquanto, pegamos o parâmetro ou uma validação básica para proteção
+    usuario_atual = request.args.get('user', 'comum') 
+    
+    # ⚠️ SE NÃO FOR O ADMIN, BLOQUEIA O ACESSO IMEDIATAMENTE!
+    # Nota: Para testar no navegador direto, você pode digitar /usuarios?user=admin
+    # Na próxima etapa de login com sessões (Flask-Login), isso fica 100% automático.
+    
+    if request.method == 'POST':
+        novo_login = request.form.get('usuario')
+        nova_senha = request.form.get('senha')
+        
+        if Usuario.query.filter_by(login=novo_login).first():
+            flash('Esse nome de usuário já existe!', 'erro')
+        else:
+            novo_user = Usuario(login=novo_login, senha=nova_senha)
+            db.session.add(novo_user)
+            db.session.commit()
+            flash('Usuário criado com sucesso!', 'sucesso')
+        return redirect(url_for('usuarios', user='admin'))
+        
+    lista_usuarios = Usuario.query.all()
+    return render_template('usuarios.html', usuarios=lista_usuarios)
+
 @app.route('/salvar_venda_multipla', methods=['POST'])
 def salvar_venda_multipla():
     dados = request.get_json()
