@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Usuario, Cliente, Venda, ItemVenda
 
 app = Flask(__name__)
@@ -8,14 +9,12 @@ app = Flask(__name__)
 # Configurações básicas de Segurança
 app.config['SECRET_KEY'] = 'benepet_crm_secret_key_123'
 
-# 1️⃣ CONFIGURAÇÃO DA CONEXÃO DO BANCO DE DADOS (LOCAL OU NUVEM)
+# 1️⃣ CONFIGURAÇÃO DA CONEXÃO DO BANCO DE DADOS
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
-# Padronização do driver necessária para o SQLAlchemy
 if base_uri.startswith("postgres://"):
     base_uri = base_uri.replace("postgres://", "postgresql://", 1)
 
-# Ativa o SSL exigido pelo banco do Render
 if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
     if "?" in base_uri:
         base_uri += "&sslmode=require"
@@ -25,29 +24,28 @@ if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
 app.config['SQLALCHEMY_DATABASE_URI'] = base_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicializa o banco
 db.init_app(app)
 
-# Variável de controle simples para rodar a criação de tabelas uma única vez
+# Variável de controle para rodar a criação de tabelas uma única vez
 _tabelas_verificadas = False
 
-# 2️⃣ HOOK DE INICIALIZAÇÃO SEGURO (Flag de verificação)
+# 2️⃣ HOOK DE INICIALIZAÇÃO SEGURO COM CRIPTOGRAFIA
 @app.before_request
 def inicializar_banco_seguro():
     global _tabelas_verificadas
     if not _tabelas_verificadas:
         try:
             db.create_all()
-            # Gera a conta padrão caso a tabela esteja limpa
+            # Gera a conta padrão criptografada caso a tabela esteja limpa
             if not Usuario.query.first():
-                usuario_padrao = Usuario(login='admin', senha='admin')
+                senha_criptografada = generate_password_hash('admin')
+                usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
                 db.session.add(usuario_padrao)
                 db.session.commit()
             _tabelas_verificadas = True
         except Exception as e:
             print(f"Aviso de verificação do banco em produção: {e}")
 
-# --- FUNÇÃO DE VALIDAÇÃO DA SESSÃO ---
 def usuario_esta_logado():
     return 'usuario' in session
 
@@ -63,13 +61,17 @@ def index():
 def criar_admin_forcado():
     try:
         db.create_all()
-        existe = Usuario.query.filter_by(login='admin').first()
-        if not existe:
-            usuario_padrao = Usuario(login='admin', senha='admin')
-            db.session.add(usuario_padrao)
+        # Remove usuário admin antigo se existir para não dar conflito de hash
+        usuario_antigo = Usuario.query.filter_by(login='admin').first()
+        if usuario_antigo:
+            db.session.delete(usuario_antigo)
             db.session.commit()
-            return "Usuário 'admin' gerado com sucesso no PostgreSQL! Pode ir para /login."
-        return "O usuário 'admin' já consta na base de dados ativa."
+            
+        senha_criptografada = generate_password_hash('admin')
+        usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
+        db.session.add(usuario_padrao)
+        db.session.commit()
+        return "Usuário 'admin' gerado com SENHA CRIPTOGRAFADA no PostgreSQL! Pode ir para /login."
     except Exception as e:
         return f"Falha ao forçar a gravação inicial: {str(e)}"
 
@@ -80,8 +82,9 @@ def login():
         senha = request.form.get('senha')
         
         try:
-            user = Usuario.query.filter_by(login=usuario, senha=senha).first()
-            if user:
+            user = Usuario.query.filter_by(login=usuario).first()
+            # Compara o hash seguro do banco com a senha digitada
+            if user and check_password_hash(user.senha, senha):
                 session['usuario'] = user.login
                 return redirect(url_for('dashboard'))
             else:
@@ -164,7 +167,9 @@ def usuarios():
         if Usuario.query.filter_by(login=novo_login).first():
             flash('Esse nome de usuário já existe!', 'erro')
         else:
-            novo_user = Usuario(login=novo_login, senha=nova_senha)
+            # Criptografa a senha antes de salvar um novo usuário no sistema
+            senha_segura = generate_password_hash(nova_senha)
+            novo_user = Usuario(login=novo_login, senha=senha_segura)
             db.session.add(novo_user)
             db.session.commit()
             flash('Usuário criado com sucesso!', 'sucesso')
