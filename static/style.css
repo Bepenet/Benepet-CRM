@@ -1,0 +1,199 @@
+/* Configurações Gerais e Cores do PetCRM */
+:root {
+    --bg-color: #f5f7fb;
+    --card-bg: #ffffff;
+    --text-color: #2c3e50;
+    --primary-color: #3498db;
+    --success-color: #27ae60;
+    --danger-color: #e74c3c;
+    --border-color: #e2e8f0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+}
+
+/* Container Principal (Dashboard e Telas) */
+.dashboard {
+    width: 90%;
+    max-width: 1100px;
+    margin: 40px auto;
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+h1 {
+    font-size: 28px;
+    margin-top: 0;
+    color: var(--text-color);
+}
+
+h2 {
+    font-size: 20px;
+    color: #7f8c8d;
+    margin-bottom: 25px;
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: var(--border-color);
+    margin: 30px 0;
+}
+
+/* Grid de Cards */
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.card {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    border-left: 5px solid var(--primary-color);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card p {
+    margin: 0;
+    font-size: 32px;
+    font-weight: bold;
+}
+
+/* Formulários Modernos (Clientes e Vendas) */
+.form-cliente {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+/* Faz campos maiores ou labels ocuparem a linha toda se necessário */
+.form-cliente label {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.form-cliente input, 
+.form-cliente select, 
+.form-cliente textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+    background-color: #fff;
+}
+
+.form-cliente input:focus, 
+.form-cliente select:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.form-cliente button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.form-cliente button:hover {
+    background-color: #2980b9;
+}
+
+/* Tabelas */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+th, td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+}
+
+tr:hover {
+    background-color: #f8fafc;
+}
+
+/* Links e Ações */
+a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.btn-excluir {
+    color: var(--danger-color);
+    font-size: 18px;
+    margin-left: 10px;
+}
+
+/* Estilo para mensagens de lista vazia */
+.feedback-sucesso {
+    color: var(--success-color);
+    font-weight: 500;
+    background: #ecfdf5;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #a7f3d0;
+}

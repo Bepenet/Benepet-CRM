@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+    <meta charset="UTF-8">
+    <title>PetCRM - Vendas</title>
+    <link rel="stylesheet" href="/static/style.css"></head><body>
+    <div class="dashboard">
+        <h1>🛒 Registro de Vendas</h1>
+
+        <form action="/vendas" method="POST" class="form-cliente">
+            <label>Selecione o Cliente:
+            <select name="cliente_id" required>
+                <option value="">-- Escolha um Cliente --</option>
+                {% for cliente in clientes %}
+                    <option value="{{ cliente.id }}">{{ cliente.nome }}</option>
+                {% endfor %}
+            </select>
+            </label>
+
+            <label>Produto Vendido:
+            <select name="produto" required>
+                <option value="">-- Escolha o Produto --</option>
+                <option value="Tapete uso interno">Tapete uso interno</option>
+                <option value="Tapete Bag revenda">Tapete Bag revenda</option>
+                <option value="Areia Sílica">Areia Sílica</option>
+                <option value="Cata Caca">Cata Caca</option>
+            </select>
+            </label>
+
+            <label>Valor da Venda:
+            <input type="number" step="0.01" name="valor" placeholder="Digite o valor confirmado" required>
+            </label>
+            
+            <label>Data da Venda:
+            <input type="date" name="data_venda" required>
+            </label>
+            
+            <button type="submit">Confirmar Venda</button>
+        </form>
+
+        <hr>
+
+        <h2>Histórico de Vendas</h2>
+        <table>
+            <tr>
+                <th>Cliente</th>
+                <th>Produto</th>
+                <th>Valor</th>
+                <th>Data</th>
+                <th>Ações</th>
+            </tr>
+            {% for venda in vendas %}
+            <tr>
+                <td><strong>{{ venda.cliente.nome }}</strong></td>
+                <td>{{ venda.produto }}</td>
+                <td>R$ {{ "%.2f"|format(venda.valor) }}</td>
+                <td>
+                    {% if venda.data_venda and venda.data_venda|length >= 10 %}
+                        {{ venda.data_venda[8:10] }}/{{ venda.data_venda[5:7] }}/{{ venda.data_venda[0:4] }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/excluir_venda/{{ venda.id }}" class="btn-excluir" onclick="return confirm('Tem certeza que deseja excluir esta venda?');">🗑️</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <br>
+        <a href="/dashboard">← Voltar ao Dashboard</a>
+    </div></body></html>

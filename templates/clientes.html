@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+    <meta charset="UTF-8">
+    <title>PetCRM - Clientes</title>
+    <link rel="stylesheet" href="/static/style.css"></head><body>
+    <div class="dashboard">
+        <h1>👥 Cadastro de Clientes</h1>
+
+        <form action="/clientes" method="POST" class="form-cliente">
+            <input type="text" name="nome" placeholder="Nome do Cliente" required>
+            <input type="text" name="telefone" placeholder="Telefone (ex: 47999999999)">
+            <input type="text" name="cidade" placeholder="Cidade">
+            
+            <select name="produto" required>
+                <option value="">-- Produto de Interesse --</option>
+                <option value="Tapete uso interno">Tapete uso interno</option>
+                <option value="Tapete Bag revenda">Tapete Bag revenda</option>
+                <option value="Areia Sílica">Areia Sílica</option>
+                <option value="Cata Caca">Cata Caca</option>
+            </select>
+
+            <label>Data da Compra: <input type="date" name="data_compra"></label>
+            
+            <select name="dias_retorno" required>
+                <option value="">-- Retorno em --</option>
+                <option value="7">07 dias</option>
+                <option value="15">15 dias</option>
+                <option value="30">30 dias</option>
+            </select>
+
+            <input type="text" name="observacao" placeholder="Observações">
+            
+            <button type="submit">Cadastrar Cliente</button>
+        </form>
+
+        <hr>
+
+        <h2>Lista de Clientes</h2>
+        <table>
+            <tr>
+                <th>Nome</th>
+                <th>Telefone</th>
+                <th>Cidade</th>
+                <th>Produto</th>
+                <th>Próximo Contato</th>
+                <th>Ações</th>
+            </tr>
+            {% for cliente in clientes %}
+            <tr>
+                <td><strong>{{ cliente.nome }}</strong></td>
+                <td>{{ cliente.telefone }}</td>
+                <td>{{ cliente.cidade }}</td>
+                <td>{{ cliente.produto }}</td>
+                <td>
+                    {% if cliente.proximo_contato and cliente.proximo_contato|length >= 10 %}
+                        {{ cliente.proximo_contato[8:10] }}/{{ cliente.proximo_contato[5:7] }}/{{ cliente.proximo_contato[0:4] }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/excluir/{{ cliente.id }}" class="btn-excluir" onclick="return confirm('Deseja excluir este cliente?');">🗑️</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <br>
+        <a href="/dashboard">← Voltar ao Dashboard</a>
+    </div></body></html>

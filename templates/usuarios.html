@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+    <meta charset="UTF-8">
+    <title>BENEPET - Usuários</title>
+    <link rel="stylesheet" href="/static/style.css"></head><body>
+    <div class="dashboard">
+        <h1>🔑 Acessos e Usuários</h1>
+
+        <form action="/usuarios" method="POST" class="form-cliente">
+            <input type="text" name="usuario" placeholder="Nome do novo usuário" required>
+            <input type="password" name="senha" placeholder="Senha de acesso" required>
+            <button type="submit">Dar Acesso</button>
+        </form>
+
+        <hr>
+
+        <h2>Usuários com Acesso Cadastrado</h2>
+        <table>
+            <tr>
+                <th>Nome do Usuário</th>
+                <th>Ações</th>
+            </tr>
+            {% for u in usuarios %}
+            <tr>
+                <td><strong>{{ u.nome }}</strong></td>
+                <td>
+                    {% if u.nome != 'admin' %}
+                        <a href="/excluir_usuario/{{ u.id }}" class="btn-excluir" onclick="return confirm('Deseja revogar o acesso deste usuário?');">🗑️ Remover Acesso</a>
+                    {% else %}
+                        <span style="color: #7f8c8d; font-size: 13px;">Administrador Padrão</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <br>
+        <a href="/dashboard">← Voltar ao Dashboard</a>
+    </div></body></html>
