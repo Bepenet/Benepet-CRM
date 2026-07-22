@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from datetime import datetime, timedelta
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, func
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Usuario, Cliente, Venda, ItemVenda
 
@@ -118,13 +118,23 @@ def dashboard():
         vendas_total = Venda.query.count()
         todos_clientes = Cliente.query.all()
         total_contatos_pendentes = len([c for c in todos_clientes if c.precisa_contato])
+
+        valor_total_vendido = db.session.query(func.sum(Venda.valor_total)).scalar() or 0
+
+        vendido_por_produto = db.session.query(
+            ItemVenda.produto, func.sum(ItemVenda.valor_subtotal)
+        ).group_by(ItemVenda.produto).order_by(func.sum(ItemVenda.valor_subtotal).desc()).all()
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes = 0, 0, 0
+        valor_total_vendido = 0
+        vendido_por_produto = []
 
     return render_template('dashboard.html',
                            clientes_total=clientes_total,
                            vendas_total=vendas_total,
                            total_contatos_pendentes=total_contatos_pendentes,
+                           valor_total_vendido=valor_total_vendido,
+                           vendido_por_produto=vendido_por_produto,
                            usuario_logado=session['usuario'])
 
 @app.route('/relatorios')
