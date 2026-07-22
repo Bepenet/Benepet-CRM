@@ -7,36 +7,38 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { display: flex; background-color: #f4f6f9; color: #333; height: 100vh; overflow: hidden; }
-        
-        /* Barra Lateral Moderna */
+
         .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; }
         .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
         .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
         .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; transition: all 0.3s ease; }
         .menu-link:hover { background-color: #334155; color: white; }
         .menu-link.active { background-color: #3b82f6; color: white; }
-        
-        /* Área de Conteúdo Principal */
+
         .main-content { flex-grow: 1; padding: 40px; overflow-y: auto; background-color: #f8fafc; }
         .header-title { font-size: 26px; color: #0f172a; font-weight: 700; margin-bottom: 30px; }
-        
-        /* Grid de Cards */
+
         .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 35px; }
         .card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
         .card::before { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 4px; }
         .card-blue::before { background-color: #3b82f6; }
         .card-green::before { background-color: #10b981; }
+        .card-red::before { background-color: #ef4444; }
         .card-title { font-size: 14px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; }
         .card-value { font-size: 36px; font-weight: 700; color: #1e293b; margin-top: 10px; }
-        
-        /* Tabela Estilizada */
-        .data-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+
+        .data-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 30px; }
         .section-title { font-size: 18px; color: #1e293b; font-weight: 600; margin-bottom: 20px; }
         .custom-table { width: 100%; border-collapse: collapse; text-align: left; }
         .custom-table th { padding: 14px 16px; background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0; }
         .custom-table td { padding: 14px 16px; color: #334155; font-size: 15px; border-bottom: 1px solid #f1f5f9; }
         .custom-table tr:hover td { background-color: #f8fafc; }
         .badge { background: #fef3c7; color: #d97706; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+        .badge-atrasado { background: #fee2e2; color: #b91c1c; }
+        .badge-hoje { background: #ffedd5; color: #c2410c; }
+        .btn-whats { background: #10b981; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; }
+        .btn-whats:hover { background: #059669; }
+        .alerta-vazio { text-align: center; color: #94a3b8; padding: 30px; }
     </style>
 </head>
 <body>
@@ -49,7 +51,6 @@
             <a href="/dashboard" class="menu-link active">📊 Dashboard</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
             <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
-            
             <a href="/usuarios?user=admin" id="btn-admin" class="menu-link" style="display: none;">🔐 Usuários</a>
         </nav>
     </aside>
@@ -62,33 +63,76 @@
                 <span class="card-title">Total de Clientes</span>
                 <span class="card-value">{{ clientes_total }}</span>
             </div>
-            </div>
             <a href="/vendas/relatorio" style="text-decoration: none; color: inherit;">
                 <div class="card card-green" style="cursor: pointer;">
                     <span class="card-title">Total de Vendas</span>
                     <span class="card-value">{{ vendas_total }}</span>
                 </div>
             </a>
+            <div class="card card-red">
+                <span class="card-title">Contatos Pendentes</span>
+                <span class="card-value">{{ clientes_para_contato|length }}</span>
+            </div>
         </div>
 
         <div class="data-section">
-            <h3 class="section-title">Acompanhamento de Clientes Ativos</h3>
+            <h3 class="section-title">📞 Clientes para Contatar Agora</h3>
             <table class="custom-table">
                 <thead>
                     <tr>
                         <th>Cliente</th>
                         <th>Contato</th>
-                        <th>Produto Principal</th>
-                        <th>Retorno Previsto</th>
+                        <th>Última Venda</th>
+                        <th>Situação</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in clientes_para_contato %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;">{{ c.nome }}</td>
+                        <td>{{ c.telefone or '-' }}</td>
+                        <td>{{ c.ultima_venda_data.strftime('%d/%m/%Y') if c.ultima_venda_data else 'Nunca comprou' }}</td>
+                        <td>
+                            {% if c.dias_para_contato < 0 %}
+                                <span class="badge badge-atrasado">Atrasado {{ -c.dias_para_contato }} dia(s)</span>
+                            {% else %}
+                                <span class="badge badge-hoje">Contatar hoje</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.telefone %}
+                                <a class="btn-whats" target="_blank" href="https://wa.me/55{{ c.telefone|replace('(', '')|replace(')', '')|replace(' ', '')|replace('-', '') }}">WhatsApp</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="alerta-vazio">Nenhum cliente precisa de contato no momento. 🎉</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="data-section">
+            <h3 class="section-title">Todos os Clientes</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Contato</th>
+                        <th>Última Venda</th>
+                        <th>Próximo Contato</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for c in clientes %}
                     <tr>
                         <td style="font-weight: 600; color: #0f172a;">{{ c.nome }}</td>
-                        <td>{{ c.telefone }}</td>
-                        <td>{{ c.produto }}</td>
-                        <td><span class="badge">{{ c.periodo_retorno }} dias</span></td>
+                        <td>{{ c.telefone or '-' }}</td>
+                        <td>{{ c.ultima_venda_data.strftime('%d/%m/%Y') if c.ultima_venda_data else 'Nunca comprou' }}</td>
+                        <td><span class="badge">{{ c.proximo_contato.strftime('%d/%m/%Y') }}</span></td>
                     </tr>
                     {% else %}
                     <tr>
@@ -101,13 +145,12 @@
     </main>
 
     <script>
-    // Recupera o usuário logado enviado de forma segura pelo servidor Flask
-    const usuarioLogado = "{{ usuario_logado }}"; 
-    
+    const usuarioLogado = "{{ usuario_logado }}";
+
     if (usuarioLogado === 'admin') {
         document.getElementById('btn-admin').style.display = 'flex';
     }
-</script>
+    </script>
 
 </body>
 </html>

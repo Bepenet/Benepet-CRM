@@ -6,7 +6,7 @@ from models import db, Usuario, Cliente, Venda, ItemVenda
 
 app = Flask(__name__)
 
-app.config['SECRET_KEY'] = 'benepet_crm_secret_key_123'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'benepet_crm_secret_key_123')
 
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
@@ -53,7 +53,7 @@ def index():
 @app.route('/criar_admin_forcado')
 def criar_admin_forcado():
     try:
-        db.drop_all() 
+        db.drop_all()
         db.create_all()
         senha_criptografada = generate_password_hash('admin')
         usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
@@ -68,7 +68,7 @@ def login():
     if request.method == 'POST':
         usuario = request.form.get('usuario')
         senha = request.form.get('senha')
-        
+
         try:
             user = Usuario.query.filter_by(login=usuario).first()
             if user and check_password_hash(user.senha, senha):
@@ -78,7 +78,7 @@ def login():
                 flash('Usuário ou senha inválidos!', 'erro')
         except Exception as e:
             flash('Conexão instável com a base de dados. Tente novamente.', 'erro')
-            
+
     return render_template('login.html')
 
 @app.route('/logout')
@@ -90,25 +90,32 @@ def logout():
 def dashboard():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-        
+
     try:
         clientes_total = Cliente.query.count()
         vendas_total = Venda.query.count()
-        clientes = Cliente.query.all()
+        todos_clientes = Cliente.query.all()
+        # Clientes que já passaram (ou estão na hora) do prazo de contato,
+        # ordenados pelos mais atrasados primeiro
+        clientes_para_contato = sorted(
+            [c for c in todos_clientes if c.precisa_contato],
+            key=lambda c: c.proximo_contato
+        )
     except Exception as e:
-        clientes_total, vendas_total, clientes = 0, 0, []
-    
-    return render_template('dashboard.html', 
-                           clientes_total=clientes_total, 
-                           vendas_total=vendas_total, 
-                           clientes=clientes,
+        clientes_total, vendas_total, todos_clientes, clientes_para_contato = 0, 0, [], []
+
+    return render_template('dashboard.html',
+                           clientes_total=clientes_total,
+                           vendas_total=vendas_total,
+                           clientes=todos_clientes,
+                           clientes_para_contato=clientes_para_contato,
                            usuario_logado=session['usuario'])
 
 @app.route('/clientes', methods=['GET', 'POST'])
 def clientes():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-        
+
     if request.method == 'POST':
         nome = request.form.get('nome')
         cpf_cnpj = request.form.get('cpf_cnpj')
@@ -117,13 +124,12 @@ def clientes():
         contato = request.form.get('contato')
         dias_aviso = int(request.form.get('dias_aviso', 30))
         data_cadastro_str = request.form.get('data_cadastro')
-        
-        # Converte a data enviada pelo HTML ou assume a data/hora atual se vier vazia
+
         if data_cadastro_str:
             data_cadastro = datetime.strptime(data_cadastro_str, '%Y-%m-%d')
         else:
             data_cadastro = datetime.utcnow()
-        
+
         novo_cliente = Cliente(
             nome=nome,
             cpf_cnpj=cpf_cnpj,
@@ -132,15 +138,14 @@ def clientes():
             contato=contato,
             data_cadastro=data_cadastro,
             dias_aviso=dias_aviso,
-            periodo_retorno=dias_aviso # Mantendo sincronia
+            periodo_retorno=dias_aviso
         )
         db.session.add(novo_cliente)
         db.session.commit()
         flash('Cliente cadastrado com sucesso!', 'sucesso')
         return redirect(url_for('clientes'))
-        
+
     todos_clientes = Cliente.query.all()
-    # Pega a data de hoje formatada em AAAA-MM-DD para preencher o formulário automaticamente
     hoje_formatado = datetime.now().strftime('%Y-%m-%d')
     return render_template('clientes.html', clientes=todos_clientes, hoje=hoje_formatado)
 
@@ -148,7 +153,7 @@ def clientes():
 def vendas():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-        
+
     clientes = Cliente.query.all()
     historico_vendas = Venda.query.order_by(Venda.data.desc()).all()
     return render_template('vendas.html', clientes=clientes, vendas=historico_vendas)
@@ -158,11 +163,11 @@ def usuarios():
     if not usuario_esta_logado() or session['usuario'] != 'admin':
         flash('Acesso restrito apenas para o administrador!', 'erro')
         return redirect(url_for('dashboard'))
-        
+
     if request.method == 'POST':
         novo_login = request.form.get('usuario')
         nova_senha = request.form.get('senha')
-        
+
         if Usuario.query.filter_by(login=novo_login).first():
             flash('Esse nome de usuário já existe!', 'erro')
         else:
@@ -172,7 +177,7 @@ def usuarios():
             db.session.commit()
             flash('Usuário criado com sucesso!', 'sucesso')
         return redirect(url_for('usuarios'))
-        
+
     lista_usuarios = Usuario.query.all()
     return render_template('usuarios.html', usuarios=lista_usuarios)
 
@@ -180,20 +185,20 @@ def usuarios():
 def salvar_venda_multipla():
     if not usuario_esta_logado():
         return jsonify({"erro": "Não autorizado"}), 401
-        
+
     dados = request.get_json()
     cliente_id = dados.get('cliente_id')
     data_str = dados.get('data')
     valor_total = dados.get('valor_total')
     itens = dados.get('itens')
-    
+
     data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
-    
+
     try:
         nova_venda = Venda(cliente_id=cliente_id, data=data_venda, valor_total=valor_total)
         db.session.add(nova_venda)
         db.session.flush()
-        
+
         for item in itens:
             novo_item = ItemVenda(
                 venda_id=nova_venda.id,
@@ -203,64 +208,33 @@ def salvar_venda_multipla():
                 valor_subtotal=float(item['valor_subtotal'])
             )
             db.session.add(novo_item)
-            
+
         db.session.commit()
         return jsonify({"mensagem": "Venda gravada com sucesso!"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
+
 @app.route('/vendas/relatorio')
 def relatorio_vendas():
-    # 1. Conecta ao banco de dados SQLite do seu CRM
-    conn = sqlite3.connect('benepet.db') # Certifique-se de que o nome do seu banco está igual a este
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    # 2. Busca todas as vendas lançadas com os nomes dos clientes
-    cursor.execute('''
-        SELECT vendas.id, vendas.data, vendas.valor_total, clientes.nome AS cliente_nome 
-        FROM vendas 
-        JOIN clientes ON vendas.cliente_id = clientes.id
-        ORDER BY vendas.data DESC
-    ''')
-    vendas = cursor.fetchall()
-    conn.close()
-    
-    # 3. Abre a nova página que vamos criar no próximo passo, passando a lista de vendas
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    vendas = Venda.query.order_by(Venda.data.desc()).all()
     return render_template('detalhe_vendas.html', vendas=vendas)
+
+@app.route('/venda/detalhar/<int:id>')
+def detalhar_venda(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    venda = Venda.query.get(id)
+    if not venda:
+        return "Venda não encontrada", 404
+
+    itens = venda.itens
+    return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True)
+
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=porta)
-
-    @app.route('/venda/detalhar/<int:id>')
-def detalhar_venda(id):
-    # 1. Conecta ao banco de dados
-    conn = sqlite3.connect('benepet.db')
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    # 2. Busca os dados principais da venda (Cliente e Valor)
-    cursor.execute('''
-        SELECT vendas.*, clientes.nome AS cliente_nome 
-        FROM vendas 
-        JOIN clientes ON vendas.cliente_id = clientes.id
-        WHERE vendas.id = ?
-    ''', (id,))
-    venda = cursor.fetchone()
-    
-    # 3. Busca os produtos/itens que fazem parte dessa venda específica
-    cursor.execute('''
-        SELECT itens_venda.*, produtos.nome AS produto_nome 
-        FROM itens_venda 
-        JOIN produtos ON itens_venda.produto_id = produtos.id
-        WHERE itens_venda.venda_id = ?
-    ''', (id,))
-    itens = cursor.fetchall()
-    
-    conn.close()
-    
-    if not venda:
-        return "Venda não encontrada", 404
-        
-    # 4. Abre a mesma tela de cadastro de vendas, mas passando a venda e os itens existentes
-    return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True)
