@@ -22,6 +22,16 @@
                 <label style="display:block; margin-bottom:5px; font-weight:bold;">Data da Venda:</label>
                 <input type="date" id="data_venda" style="padding:7px;">
             </div>
+            <div style="flex: 1;">
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Prazo de Pagamento:</label>
+                <select id="prazo_pagamento" style="width:100%; padding:8px;">
+                    <option value="A Vista (Pix)">A Vista (Pix)</option>
+                    <option value="A Vista (Dinheiro)">A Vista (Dinheiro)</option>
+                    <option value="Prazo 7 dias">Prazo 7 dias</option>
+                    <option value="Parcelado 30/60">Parcelado 30/60</option>
+                    <option value="Parcelado 30/45/60">Parcelado 30/45/60</option>
+                </select>
+            </div>
         </div>
 
         <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
@@ -128,7 +138,8 @@
                 cliente_id: document.getElementById('cliente_id').value,
                 data: document.getElementById('data_venda').value,
                 valor_total: carrinho.reduce((sum, item) => sum + item.valor_subtotal, 0),
-                itens: carrinho
+                itens: carrinho,
+                prazo_pagamento: document.getElementById('prazo_pagamento').value
             };
 
             fetch('/salvar_venda_multipla', {

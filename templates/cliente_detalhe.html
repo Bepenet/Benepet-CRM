@@ -112,6 +112,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Data</th>
+                    <th>Prazo Pagamento</th>
                     <th>Valor Total</th>
                     <th>Ação</th>
                 </tr>
@@ -121,12 +122,13 @@
                 <tr>
                     <td>#{{ venda.id }}</td>
                     <td>{{ venda.data.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ venda.prazo_pagamento or '-' }}</td>
                     <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
                     <td><a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Ver Itens</a></td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" style="text-align: center; color: #95a5a6;">Esse cliente ainda não tem vendas registradas.</td>
+                    <td colspan="5" style="text-align: center; color: #95a5a6;">Esse cliente ainda não tem vendas registradas.</td>
                 </tr>
                 {% endfor %}
             </tbody>

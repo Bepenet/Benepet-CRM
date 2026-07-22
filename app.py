@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from datetime import datetime
+from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Usuario, Cliente, Venda, ItemVenda
 
@@ -26,12 +27,23 @@ db.init_app(app)
 
 _tabelas_verificadas = False
 
+def garantir_colunas_novas():
+    """Adiciona colunas novas em tabelas já existentes (SQLite ou Postgres),
+    já que db.create_all() só cria tabelas que ainda não existem."""
+    inspector = inspect(db.engine)
+    colunas_venda = [c['name'] for c in inspector.get_columns('venda')]
+    if 'prazo_pagamento' not in colunas_venda:
+        with db.engine.connect() as conn:
+            conn.execute(text('ALTER TABLE venda ADD COLUMN prazo_pagamento VARCHAR(50)'))
+            conn.commit()
+
 @app.before_request
 def inicializar_banco_seguro():
     global _tabelas_verificadas
     if not _tabelas_verificadas:
         try:
             db.create_all()
+            garantir_colunas_novas()
             if not Usuario.query.first():
                 senha_criptografada = generate_password_hash('admin')
                 usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
@@ -215,11 +227,12 @@ def salvar_venda_multipla():
     data_str = dados.get('data')
     valor_total = dados.get('valor_total')
     itens = dados.get('itens')
+    prazo_pagamento = dados.get('prazo_pagamento')
 
     data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
 
     try:
-        nova_venda = Venda(cliente_id=cliente_id, data=data_venda, valor_total=valor_total)
+        nova_venda = Venda(cliente_id=cliente_id, data=data_venda, valor_total=valor_total, prazo_pagamento=prazo_pagamento)
         db.session.add(nova_venda)
         db.session.flush()
 

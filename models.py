@@ -48,6 +48,7 @@ class Venda(db.Model):
     cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
     data = db.Column(db.DateTime, nullable=False)
     valor_total = db.Column(db.Float, nullable=False)
+    prazo_pagamento = db.Column(db.String(50))
 
     cliente = db.relationship('Cliente', backref=db.backref('vendas', lazy=True))
 

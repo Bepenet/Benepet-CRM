@@ -98,6 +98,7 @@
             <h2 class="titulo-pagina">Detalhes da Venda #{{ venda.id }}</h2>
             <p><strong>Cliente:</strong> {{ venda.cliente.nome }}</p>
             <p><strong>Data:</strong> {{ venda.data.strftime('%d/%m/%Y') }}</p>
+            <p><strong>Prazo de Pagamento:</strong> {{ venda.prazo_pagamento or '-' }}</p>
             <p><strong>Valor Total:</strong> R$ {{ "%.2f"|format(venda.valor_total) }}</p>
 
             <table class="tabela-vendas">
@@ -129,6 +130,7 @@
                         <th>ID da Venda</th>
                         <th>Cliente</th>
                         <th>Data de Lançamento</th>
+                        <th>Prazo Pagamento</th>
                         <th>Status</th>
                         <th>Valor Total</th>
                         <th>Ações</th>
@@ -140,13 +142,14 @@
                         <td>#{{ venda.id }}</td>
                         <td><strong>{{ venda.cliente.nome }}</strong></td>
                         <td>{{ venda.data.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ venda.prazo_pagamento or '-' }}</td>
                         <td><span class="status-venda">Concluída</span></td>
                         <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
                         <td><a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar Venda</a></td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="nenhuma-venda">Nenhuma venda encontrada no sistema até o momento.</td>
+                        <td colspan="7" class="nenhuma-venda">Nenhuma venda encontrada no sistema até o momento.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
