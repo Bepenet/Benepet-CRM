@@ -18,6 +18,8 @@ class Cliente(db.Model):
     data_cadastro = db.Column(db.DateTime, nullable=False)
     dias_aviso = db.Column(db.Integer, default=30)  # 7, 15 ou 30 dias
     periodo_retorno = db.Column(db.Integer, default=30)  # Mantido por compatibilidade
+    contato_adiado_ate = db.Column(db.DateTime)  # lembrete adiado manualmente até essa data
+    contato_desconsiderado = db.Column(db.Boolean, default=False)  # lembrete ignorado permanentemente
 
     @property
     def ultima_venda_data(self):
@@ -28,13 +30,18 @@ class Cliente(db.Model):
 
     @property
     def proximo_contato(self):
-        """Data em que o cliente deve ser contatado novamente."""
+        """Data em que o cliente deve ser contatado novamente, já considerando um adiamento manual."""
         base = self.ultima_venda_data or self.data_cadastro
-        return base + timedelta(days=self.dias_aviso or 30)
+        data_calculada = base + timedelta(days=self.dias_aviso or 30)
+        if self.contato_adiado_ate and self.contato_adiado_ate > data_calculada:
+            return self.contato_adiado_ate
+        return data_calculada
 
     @property
     def precisa_contato(self):
-        """True se já passou (ou é hoje) a data de contato."""
+        """True se já passou (ou é hoje) a data de contato, e o lembrete não foi desconsiderado."""
+        if self.contato_desconsiderado:
+            return False
         return datetime.utcnow() >= self.proximo_contato
 
     @property

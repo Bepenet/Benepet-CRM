@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contatos Pendentes - BenePet CRM</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; background-color: #f4f6f9; color: #333; min-height: 100vh; }
+
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; height: 100vh; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; }
+        .menu-link:hover { background-color: #334155; color: white; }
+
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
+        .header-title { font-size: 26px; color: #0f172a; font-weight: 700; margin-bottom: 30px; }
+        .voltar-btn { color: #3498db; text-decoration: none; font-weight: bold; display: inline-block; margin-bottom: 20px; }
+        .voltar-btn:hover { text-decoration: underline; }
+
+        .alert { padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: 500; text-align: center; }
+        .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+
+        .data-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .section-title { font-size: 18px; color: #1e293b; font-weight: 600; margin-bottom: 20px; }
+        .custom-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .custom-table th { padding: 14px 16px; background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0; }
+        .custom-table td { padding: 14px 16px; color: #334155; font-size: 15px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .custom-table tr:hover td { background-color: #f8fafc; }
+        .badge-atrasado { background: #fee2e2; color: #b91c1c; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+        .badge-hoje { background: #ffedd5; color: #c2410c; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+        .badge-cinza { background: #e2e8f0; color: #475569; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+        .btn-whats { background: #10b981; color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .btn-whats:hover { background: #059669; }
+        .acoes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .btn-adiar { background: #3b82f6; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .btn-adiar:hover { background: #2563eb; }
+        .btn-desconsiderar { background: #f1f5f9; color: #ef4444; border: 1px solid #fecaca; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .btn-desconsiderar:hover { background: #fee2e2; }
+        .btn-reativar { background: #f1f5f9; color: #3b82f6; border: 1px solid #bfdbfe; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+        .btn-reativar:hover { background: #dbeafe; }
+        .alerta-vazio { text-align: center; color: #94a3b8; padding: 30px; }
+        form.inline { display: inline; }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <span>🐾 BenePet CRM</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="/dashboard" class="menu-link">📊 Dashboard</a>
+            <a href="/clientes" class="menu-link">👥 Clientes</a>
+            <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <a href="/dashboard" class="voltar-btn">← Voltar para o Dashboard</a>
+        <h2 class="header-title">📞 Contatos Pendentes</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="data-section">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Contato</th>
+                        <th>Última Venda</th>
+                        <th>Situação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in pendentes %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ c.id }}">{{ c.nome }}</a></td>
+                        <td>{{ c.telefone or '-' }}</td>
+                        <td>{{ c.ultima_venda_data.strftime('%d/%m/%Y') if c.ultima_venda_data else 'Nunca comprou' }}</td>
+                        <td>
+                            {% if c.dias_para_contato < 0 %}
+                                <span class="badge-atrasado">Atrasado {{ -c.dias_para_contato }} dia(s)</span>
+                            {% else %}
+                                <span class="badge-hoje">Contatar hoje</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="acoes">
+                                {% if c.telefone %}
+                                <a class="btn-whats" target="_blank" href="https://wa.me/55{{ c.telefone|replace('(', '')|replace(')', '')|replace(' ', '')|replace('-', '') }}">WhatsApp</a>
+                                {% endif %}
+
+                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST">
+                                    <input type="hidden" name="dias" value="1">
+                                    <button type="submit" class="btn-adiar" title="Lembrar novamente em 1 dia">+1 dia</button>
+                                </form>
+                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST">
+                                    <input type="hidden" name="dias" value="7">
+                                    <button type="submit" class="btn-adiar" title="Lembrar novamente em 1 semana">+1 semana</button>
+                                </form>
+                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST">
+                                    <input type="hidden" name="dias" value="30">
+                                    <button type="submit" class="btn-adiar" title="Lembrar novamente em 1 mês">+1 mês</button>
+                                </form>
+                                <form class="inline" action="/clientes/{{ c.id }}/desconsiderar_contato" method="POST" onsubmit="return confirm('Desconsiderar esse lembrete permanentemente? Você pode reativar depois na seção abaixo.');">
+                                    <button type="submit" class="btn-desconsiderar" title="Não lembrar mais deste cliente">Desconsiderar</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="alerta-vazio">Nenhum cliente precisa de contato no momento. 🎉</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if desconsiderados %}
+        <div class="data-section">
+            <h3 class="section-title">Lembretes Desconsiderados</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Contato</th>
+                        <th>Situação</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in desconsiderados %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ c.id }}">{{ c.nome }}</a></td>
+                        <td>{{ c.telefone or '-' }}</td>
+                        <td><span class="badge-cinza">Desconsiderado</span></td>
+                        <td>
+                            <form class="inline" action="/clientes/{{ c.id }}/reativar_contato" method="POST">
+                                <button type="submit" class="btn-reativar">Reativar lembrete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </main>
+
+</body>
+</html>

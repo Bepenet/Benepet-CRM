@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Usuario, Cliente, Venda, ItemVenda
@@ -31,10 +31,20 @@ def garantir_colunas_novas():
     """Adiciona colunas novas em tabelas já existentes (SQLite ou Postgres),
     já que db.create_all() só cria tabelas que ainda não existem."""
     inspector = inspect(db.engine)
+
     colunas_venda = [c['name'] for c in inspector.get_columns('venda')]
     if 'prazo_pagamento' not in colunas_venda:
         with db.engine.connect() as conn:
             conn.execute(text('ALTER TABLE venda ADD COLUMN prazo_pagamento VARCHAR(50)'))
+            conn.commit()
+
+    colunas_cliente = [c['name'] for c in inspector.get_columns('cliente')]
+    with db.engine.connect() as conn:
+        if 'contato_adiado_ate' not in colunas_cliente:
+            conn.execute(text('ALTER TABLE cliente ADD COLUMN contato_adiado_ate TIMESTAMP'))
+            conn.commit()
+        if 'contato_desconsiderado' not in colunas_cliente:
+            conn.execute(text('ALTER TABLE cliente ADD COLUMN contato_desconsiderado BOOLEAN DEFAULT FALSE'))
             conn.commit()
 
 @app.before_request
@@ -107,21 +117,65 @@ def dashboard():
         clientes_total = Cliente.query.count()
         vendas_total = Venda.query.count()
         todos_clientes = Cliente.query.all()
-        # Clientes que já passaram (ou estão na hora) do prazo de contato,
-        # ordenados pelos mais atrasados primeiro
-        clientes_para_contato = sorted(
-            [c for c in todos_clientes if c.precisa_contato],
-            key=lambda c: c.proximo_contato
-        )
+        total_contatos_pendentes = len([c for c in todos_clientes if c.precisa_contato])
     except Exception as e:
-        clientes_total, vendas_total, todos_clientes, clientes_para_contato = 0, 0, [], []
+        clientes_total, vendas_total, todos_clientes, total_contatos_pendentes = 0, 0, [], 0
 
     return render_template('dashboard.html',
                            clientes_total=clientes_total,
                            vendas_total=vendas_total,
                            clientes=todos_clientes,
-                           clientes_para_contato=clientes_para_contato,
+                           total_contatos_pendentes=total_contatos_pendentes,
                            usuario_logado=session['usuario'])
+
+@app.route('/contatos-pendentes')
+def contatos_pendentes():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    todos_clientes = Cliente.query.all()
+    pendentes = sorted(
+        [c for c in todos_clientes if c.precisa_contato],
+        key=lambda c: c.proximo_contato
+    )
+    desconsiderados = [c for c in todos_clientes if c.contato_desconsiderado]
+    return render_template('contatos_pendentes.html', pendentes=pendentes, desconsiderados=desconsiderados)
+
+@app.route('/clientes/<int:id>/adiar_contato', methods=['POST'])
+def adiar_contato(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    cliente = Cliente.query.get_or_404(id)
+    dias = int(request.form.get('dias', 1))
+    cliente.contato_adiado_ate = datetime.utcnow() + timedelta(days=dias)
+    cliente.contato_desconsiderado = False
+    db.session.commit()
+    flash(f'Lembrete de {cliente.nome} adiado.', 'sucesso')
+    return redirect(url_for('contatos_pendentes'))
+
+@app.route('/clientes/<int:id>/desconsiderar_contato', methods=['POST'])
+def desconsiderar_contato(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    cliente = Cliente.query.get_or_404(id)
+    cliente.contato_desconsiderado = True
+    db.session.commit()
+    flash(f'Lembrete de {cliente.nome} desconsiderado.', 'sucesso')
+    return redirect(url_for('contatos_pendentes'))
+
+@app.route('/clientes/<int:id>/reativar_contato', methods=['POST'])
+def reativar_contato(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    cliente = Cliente.query.get_or_404(id)
+    cliente.contato_desconsiderado = False
+    cliente.contato_adiado_ate = None
+    db.session.commit()
+    flash(f'Lembrete de {cliente.nome} reativado.', 'sucesso')
+    return redirect(url_for('contatos_pendentes'))
 
 @app.route('/clientes', methods=['GET', 'POST'])
 def clientes():

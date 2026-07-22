@@ -71,50 +71,12 @@
                     <span class="card-value">{{ vendas_total }}</span>
                 </div>
             </a>
-            <div class="card card-red">
-                <span class="card-title">Contatos Pendentes</span>
-                <span class="card-value">{{ clientes_para_contato|length }}</span>
-            </div>
-        </div>
-
-        <div class="data-section">
-            <h3 class="section-title">📞 Clientes para Contatar Agora</h3>
-            <table class="custom-table">
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Contato</th>
-                        <th>Última Venda</th>
-                        <th>Situação</th>
-                        <th>Ação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in clientes_para_contato %}
-                    <tr>
-                        <td style="font-weight: 600; color: #0f172a;">{{ c.nome }}</td>
-                        <td>{{ c.telefone or '-' }}</td>
-                        <td>{{ c.ultima_venda_data.strftime('%d/%m/%Y') if c.ultima_venda_data else 'Nunca comprou' }}</td>
-                        <td>
-                            {% if c.dias_para_contato < 0 %}
-                                <span class="badge badge-atrasado">Atrasado {{ -c.dias_para_contato }} dia(s)</span>
-                            {% else %}
-                                <span class="badge badge-hoje">Contatar hoje</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if c.telefone %}
-                                <a class="btn-whats" target="_blank" href="https://wa.me/55{{ c.telefone|replace('(', '')|replace(')', '')|replace(' ', '')|replace('-', '') }}">WhatsApp</a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="alerta-vazio">Nenhum cliente precisa de contato no momento. 🎉</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <a href="/contatos-pendentes" style="text-decoration: none; color: inherit;">
+                <div class="card card-red" style="cursor: pointer;">
+                    <span class="card-title">Contatos Pendentes</span>
+                    <span class="card-value">{{ total_contatos_pendentes }}</span>
+                </div>
+            </a>
         </div>
 
         <div class="data-section">
