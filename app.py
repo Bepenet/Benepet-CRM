@@ -149,6 +149,30 @@ def clientes():
     hoje_formatado = datetime.now().strftime('%Y-%m-%d')
     return render_template('clientes.html', clientes=todos_clientes, hoje=hoje_formatado)
 
+@app.route('/clientes/<int:id>', methods=['GET', 'POST'])
+def detalhe_cliente(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    cliente = Cliente.query.get_or_404(id)
+
+    if request.method == 'POST':
+        cliente.nome = request.form.get('nome')
+        cliente.cpf_cnpj = request.form.get('cpf_cnpj')
+        cliente.endereco = request.form.get('endereco')
+        cliente.telefone = request.form.get('telefone')
+        cliente.contato = request.form.get('contato')
+        dias_aviso = int(request.form.get('dias_aviso', 30))
+        cliente.dias_aviso = dias_aviso
+        cliente.periodo_retorno = dias_aviso
+
+        db.session.commit()
+        flash('Dados do cliente atualizados com sucesso!', 'sucesso')
+        return redirect(url_for('detalhe_cliente', id=cliente.id))
+
+    historico_vendas = sorted(cliente.vendas, key=lambda v: v.data, reverse=True)
+    return render_template('cliente_detalhe.html', cliente=cliente, vendas=historico_vendas)
+
 @app.route('/vendas')
 def vendas():
     if not usuario_esta_logado():

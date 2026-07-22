@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clientes - BenePet CRM</title>
+    <title>Detalhes do Cliente - BenePet CRM</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background-color: #f4f6f9; display: flex; }
@@ -15,12 +15,14 @@
         .content { margin-left: 250px; padding: 40px; width: calc(100% - 250px); box-sizing: border-box; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .header h1 { color: #2c3e50; margin: 0; }
+        .voltar-btn { color: #3498db; text-decoration: none; font-weight: bold; }
+        .voltar-btn:hover { text-decoration: underline; }
         .form-container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
         .form-group { display: flex; flex-direction: column; }
         .form-group label { margin-bottom: 5px; color: #34495e; font-weight: 500; font-size: 14px; }
         .form-group input, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-        .btn-submit { background-color: #2ecc71; color: white; border: none; padding: 12px 20px; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; max-width: 200px; display: block; margin-top: 10px; }
+        .btn-submit { background-color: #2ecc71; color: white; border: none; padding: 12px 20px; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn-submit:hover { background-color: #27ae60; }
         table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
@@ -28,6 +30,9 @@
         tr:hover { background-color: #f9f9f9; }
         .alert { padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: 500; text-align: center; }
         .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .badge-info { background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .btn-ver { background: #007bff; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold; }
+        .btn-ver:hover { background: #0056b3; }
     </style>
 </head>
 <body>
@@ -43,7 +48,8 @@
 
     <div class="content">
         <div class="header">
-            <h1>Gerenciamento de Clientes</h1>
+            <h1>{{ cliente.nome }}</h1>
+            <a href="/clientes" class="voltar-btn">← Voltar para a lista</a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -55,79 +61,72 @@
         {% endwith %}
 
         <div class="form-container">
-            <h3><i class="fa-solid fa-user-plus" style="color: #3498db;"></i> Novo Cadastro</h3>
-            <form action="/clientes" method="POST">
+            <h3><i class="fa-solid fa-pen-to-square" style="color: #3498db;"></i> Editar Dados do Cliente</h3>
+            <form action="/clientes/{{ cliente.id }}" method="POST">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="nome">Nome Completo / Razão Social *</label>
-                        <input type="text" id="nome" name="nome" required placeholder="Ex: João Silva">
+                        <input type="text" id="nome" name="nome" required value="{{ cliente.nome }}">
                     </div>
                     <div class="form-group">
                         <label for="cpf_cnpj">CNPJ / CPF</label>
-                        <input type="text" id="cpf_cnpj" name="cpf_cnpj" placeholder="000.000.000-00">
+                        <input type="text" id="cpf_cnpj" name="cpf_cnpj" value="{{ cliente.cpf_cnpj or '' }}">
                     </div>
                     <div class="form-group">
                         <label for="telefone">Whats / Tel</label>
-                        <input type="text" id="telefone" name="telefone" placeholder="(00) 00000-0000">
+                        <input type="text" id="telefone" name="telefone" value="{{ cliente.telefone or '' }}">
                     </div>
                     <div class="form-group">
                         <label for="contato">Pessoa de Contato</label>
-                        <input type="text" id="contato" name="contato" placeholder="Nome do contato">
+                        <input type="text" id="contato" name="contato" value="{{ cliente.contato or '' }}">
                     </div>
                 </div>
 
                 <div class="form-grid">
                     <div class="form-group" style="grid-column: span 2;">
                         <label for="endereco">Endereço Completo</label>
-                        <input type="text" id="endereco" name="endereco" placeholder="Rua, Número, Bairro, Cidade">
-                    </div>
-                    <div class="form-group">
-                        <label for="data_cadastro">Data Cadastro</label>
-                        <input type="date" id="data_cadastro" name="data_cadastro" value="{{ hoje }}">
+                        <input type="text" id="endereco" name="endereco" value="{{ cliente.endereco or '' }}">
                     </div>
                     <div class="form-group">
                         <label for="dias_aviso">Aviso de Retorno</label>
                         <select id="dias_aviso" name="dias_aviso">
-                            <option value="7">07 dias</option>
-                            <option value="15">15 dias</option>
-                            <option value="30" selected>30 dias</option>
+                            <option value="7" {% if cliente.dias_aviso == 7 %}selected{% endif %}>07 dias</option>
+                            <option value="15" {% if cliente.dias_aviso == 15 %}selected{% endif %}>15 dias</option>
+                            <option value="30" {% if cliente.dias_aviso == 30 %}selected{% endif %}>30 dias</option>
                         </select>
                     </div>
                 </div>
 
-                <button type="submit" class="btn-submit"><i class="fa-solid fa-check"></i> Cadastrar</button>
+                <div style="display: flex; gap: 25px; margin-bottom: 15px; color: #64748b; font-size: 14px;">
+                    <span>Cadastrado em: <strong>{{ cliente.data_cadastro.strftime('%d/%m/%Y') }}</strong></span>
+                    <span>Próximo contato: <span class="badge-info">{{ cliente.proximo_contato.strftime('%d/%m/%Y') }}</span></span>
+                </div>
+
+                <button type="submit" class="btn-submit"><i class="fa-solid fa-check"></i> Salvar Alterações</button>
             </form>
         </div>
 
-        <h3>Clientes Cadastrados</h3>
+        <h3>Histórico de Vendas</h3>
         <table>
             <thead>
                 <tr>
-                    <th>Nome</th>
-                    <th>CPF/CNPJ</th>
-                    <th>Whats/Tel</th>
-                    <th>Contato</th>
-                    <th>Endereço</th>
-                    <th>Data Cadastro</th>
-                    <th>Aviso Retorno</th>
+                    <th>ID</th>
+                    <th>Data</th>
+                    <th>Valor Total</th>
                     <th>Ação</th>
                 </tr>
             </thead>
             <tbody>
-                {% for cliente in clientes %}
-                <tr style="cursor: pointer;" onclick="window.location='/clientes/{{ cliente.id }}'">
-                    <td><strong>{{ cliente.nome }}</strong></td>
-                    <td>{{ cliente.cpf_cnpj or '-' }}</td>
-                    <td>{{ cliente.telefone or '-' }}</td>
-                    <td>{{ cliente.contato or '-' }}</td>
-                    <td>{{ cliente.endereco or '-' }}</td>
-                    <td>{{ cliente.data_cadastro.strftime('%d/%m/%Y') }}</td>
-                    <td><span style="background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 4px; font-weight: bold;">{{ cliente.dias_aviso }} dias</span></td>
-                    <td><a href="/clientes/{{ cliente.id }}" style="background: #3498db; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold;">Ver / Editar</a></td>
+                {% for venda in vendas %}
+                <tr>
+                    <td>#{{ venda.id }}</td>
+                    <td>{{ venda.data.strftime('%d/%m/%Y') }}</td>
+                    <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
+                    <td><a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Ver Itens</a></td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; color: #95a5a6;">Nenhum cliente cadastrado ainda.</td>
+                    <td colspan="4" style="text-align: center; color: #95a5a6;">Esse cliente ainda não tem vendas registradas.</td>
                 </tr>
                 {% endfor %}
             </tbody>
