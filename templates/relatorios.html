@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatórios - BenePet CRM</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; background-color: #f4f6f9; color: #333; min-height: 100vh; }
+
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; height: 100vh; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; }
+        .menu-link:hover { background-color: #334155; color: white; }
+        .menu-link.active { background-color: #3b82f6; color: white; }
+
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
+        .header-title { font-size: 26px; color: #0f172a; font-weight: 700; margin-bottom: 30px; }
+
+        .relatorios-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+        .relatorio-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 12px; transition: transform 0.15s; }
+        .relatorio-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+        .relatorio-icone { font-size: 28px; color: #3b82f6; }
+        .relatorio-titulo { font-size: 17px; font-weight: 700; color: #0f172a; }
+        .relatorio-desc { font-size: 14px; color: #64748b; }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <span>🐾 BenePet CRM</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="/dashboard" class="menu-link">📊 Dashboard</a>
+            <a href="/clientes" class="menu-link">👥 Clientes</a>
+            <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
+            <a href="/relatorios" class="menu-link active">📄 Relatórios</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <h2 class="header-title">📄 Relatórios</h2>
+
+        <div class="relatorios-grid">
+            <a href="/relatorios/proximo-contato" class="relatorio-card">
+                <span class="relatorio-icone"><i class="fa-solid fa-phone"></i></span>
+                <span class="relatorio-titulo">Próximo Contato</span>
+                <span class="relatorio-desc">Veja quando cada cliente deve ser contatado novamente.</span>
+            </a>
+
+            <a href="/vendas/relatorio" class="relatorio-card">
+                <span class="relatorio-icone"><i class="fa-solid fa-cart-shopping"></i></span>
+                <span class="relatorio-titulo">Histórico de Vendas</span>
+                <span class="relatorio-desc">Todas as vendas lançadas no sistema.</span>
+            </a>
+        </div>
+    </main>
+
+</body>
+</html>

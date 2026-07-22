@@ -119,14 +119,28 @@ def dashboard():
         todos_clientes = Cliente.query.all()
         total_contatos_pendentes = len([c for c in todos_clientes if c.precisa_contato])
     except Exception as e:
-        clientes_total, vendas_total, todos_clientes, total_contatos_pendentes = 0, 0, [], 0
+        clientes_total, vendas_total, total_contatos_pendentes = 0, 0, 0
 
     return render_template('dashboard.html',
                            clientes_total=clientes_total,
                            vendas_total=vendas_total,
-                           clientes=todos_clientes,
                            total_contatos_pendentes=total_contatos_pendentes,
                            usuario_logado=session['usuario'])
+
+@app.route('/relatorios')
+def relatorios():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+    return render_template('relatorios.html')
+
+@app.route('/relatorios/proximo-contato')
+def relatorio_proximo_contato():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    todos_clientes = Cliente.query.all()
+    clientes = sorted(todos_clientes, key=lambda c: c.proximo_contato)
+    return render_template('relatorio_proximo_contato.html', clientes=clientes)
 
 @app.route('/contatos-pendentes')
 def contatos_pendentes():

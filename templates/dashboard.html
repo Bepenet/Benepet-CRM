@@ -51,6 +51,7 @@
             <a href="/dashboard" class="menu-link active">📊 Dashboard</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
             <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
+            <a href="/relatorios" class="menu-link">📄 Relatórios</a>
             <a href="/usuarios?user=admin" id="btn-admin" class="menu-link" style="display: none;">🔐 Usuários</a>
         </nav>
     </aside>
@@ -77,34 +78,6 @@
                     <span class="card-value">{{ total_contatos_pendentes }}</span>
                 </div>
             </a>
-        </div>
-
-        <div class="data-section">
-            <h3 class="section-title">Todos os Clientes</h3>
-            <table class="custom-table">
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Contato</th>
-                        <th>Última Venda</th>
-                        <th>Próximo Contato</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in clientes %}
-                    <tr>
-                        <td style="font-weight: 600; color: #0f172a;">{{ c.nome }}</td>
-                        <td>{{ c.telefone or '-' }}</td>
-                        <td>{{ c.ultima_venda_data.strftime('%d/%m/%Y') if c.ultima_venda_data else 'Nunca comprou' }}</td>
-                        <td><span class="badge">{{ c.proximo_contato.strftime('%d/%m/%Y') }}</span></td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4" style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum cliente cadastrado no momento.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
         </div>
     </main>
 
