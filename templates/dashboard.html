@@ -59,10 +59,12 @@
         <h2 class="header-title">Painel Geral Informativo</h2>
 
         <div class="cards-grid">
-            <div class="card card-blue">
-                <span class="card-title">Total de Clientes</span>
-                <span class="card-value">{{ clientes_total }}</span>
-            </div>
+            <a href="/clientes" style="text-decoration: none; color: inherit;">
+                <div class="card card-blue" style="cursor: pointer;">
+                    <span class="card-title">Total de Clientes</span>
+                    <span class="card-value">{{ clientes_total }}</span>
+                </div>
+            </a>
             <a href="/vendas/relatorio" style="text-decoration: none; color: inherit;">
                 <div class="card card-green" style="cursor: pointer;">
                     <span class="card-title">Total de Vendas</span>
