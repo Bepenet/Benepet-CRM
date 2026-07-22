@@ -149,12 +149,15 @@ def dashboard():
 
         valor_total_vendido = db.session.query(func.sum(Venda.valor_total)).scalar() or 0
 
-        itens_vendidos = db.session.query(ItemVenda.produto, ItemVenda.valor_subtotal).all()
+        itens_vendidos = db.session.query(ItemVenda.produto, ItemVenda.quantidade, ItemVenda.valor_subtotal).all()
         totais_por_produto = {}
-        for produto, subtotal in itens_vendidos:
+        for produto, quantidade, subtotal in itens_vendidos:
             canonico = nome_canonico_produto(produto)
-            totais_por_produto[canonico] = totais_por_produto.get(canonico, 0) + subtotal
-        vendido_por_produto = sorted(totais_por_produto.items(), key=lambda item: item[1], reverse=True)
+            if canonico not in totais_por_produto:
+                totais_por_produto[canonico] = {'quantidade': 0, 'valor': 0}
+            totais_por_produto[canonico]['quantidade'] += quantidade
+            totais_por_produto[canonico]['valor'] += subtotal
+        vendido_por_produto = sorted(totais_por_produto.items(), key=lambda item: item[1]['valor'], reverse=True)
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes = 0, 0, 0
         valor_total_vendido = 0
