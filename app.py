@@ -1,4 +1,5 @@
 import os
+import unicodedata
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text, func
@@ -8,6 +9,33 @@ from models import db, Usuario, Cliente, Venda, ItemVenda
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'benepet_crm_secret_key_123')
+
+# Nomes "oficiais" dos produtos e variações já lançadas que devem ser somadas juntas
+# (cobre diferenças de maiúscula/minúscula, acento e singular/plural)
+MAPA_PRODUTOS = {
+    'TAPETE USO INTERNO': ['TAPETE USO INTERNO'],
+    'TAPETE BAG REVENDA': ['TAPETE BAG REVENDA', 'TAPETE BAG REVENDAS'],
+    'AREIA SILICA': ['AREIA SILICA'],
+    'CATA CACA': ['CATA CACA'],
+}
+
+def normalizar_texto(texto):
+    """Remove acentos e deixa em maiúsculas, para comparar nomes de forma consistente."""
+    if not texto:
+        return ''
+    sem_acento = ''.join(
+        c for c in unicodedata.normalize('NFKD', texto)
+        if not unicodedata.combining(c)
+    )
+    return sem_acento.strip().upper()
+
+def nome_canonico_produto(nome):
+    """Devolve o nome padrão do produto, agrupando variações conhecidas."""
+    normalizado = normalizar_texto(nome)
+    for canonico, variantes in MAPA_PRODUTOS.items():
+        if normalizado in variantes:
+            return canonico
+    return normalizado or 'SEM NOME'
 
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
@@ -121,9 +149,12 @@ def dashboard():
 
         valor_total_vendido = db.session.query(func.sum(Venda.valor_total)).scalar() or 0
 
-        vendido_por_produto = db.session.query(
-            ItemVenda.produto, func.sum(ItemVenda.valor_subtotal)
-        ).group_by(ItemVenda.produto).order_by(func.sum(ItemVenda.valor_subtotal).desc()).all()
+        itens_vendidos = db.session.query(ItemVenda.produto, ItemVenda.valor_subtotal).all()
+        totais_por_produto = {}
+        for produto, subtotal in itens_vendidos:
+            canonico = nome_canonico_produto(produto)
+            totais_por_produto[canonico] = totais_por_produto.get(canonico, 0) + subtotal
+        vendido_por_produto = sorted(totais_por_produto.items(), key=lambda item: item[1], reverse=True)
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes = 0, 0, 0
         valor_total_vendido = 0
