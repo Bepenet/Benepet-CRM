@@ -27,7 +27,13 @@
         <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
             <legend style="font-weight: bold; padding: 0 10px;">Adicionar Item</legend>
             <div style="display: flex; gap: 10px;">
-                <input type="text" id="prod_nome" placeholder="Nome do Produto/Serviço" style="flex: 2; padding: 8px;">
+                <input type="text" id="prod_nome" list="lista_produtos" placeholder="Nome do Produto/Serviço" style="flex: 2; padding: 8px;">
+                <datalist id="lista_produtos">
+                    <option value="Tapete Bag Revendas">
+                    <option value="Tapete Uso Interno">
+                    <option value="Areia Sílica">
+                    <option value="Cata Caca">
+                </datalist>
                 <input type="number" id="prod_qtd" placeholder="Qtd" value="1" style="flex: 0.5; padding: 8px;">
                 <input type="number" step="0.01" id="prod_valor" placeholder="Valor Unitário (R$)" style="flex: 1; padding: 8px;">
                 <button type="button" onclick="adicionarAoCarrinho()" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">+</button>
