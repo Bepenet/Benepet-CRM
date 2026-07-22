@@ -80,37 +80,24 @@
             </a>
         </div>
 
-        <div class="data-section" style="margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
-            <div>
-                <h3 class="section-title">Total Vendido por Produto</h3>
-                <table class="custom-table">
-                    <thead>
-                        <tr>
-                            <th>Produto</th>
-                            <th>Total Vendido</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for produto, total in vendido_por_produto %}
-                        <tr>
-                            <td>{{ produto }}</td>
-                            <td>R$ {{ "%.2f"|format(total) }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="2" style="text-align: center; color: #94a3b8; padding: 20px;">Nenhuma venda registrada ainda.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <div>
-                <h3 class="section-title">Total Vendido (R$)</h3>
-                <div class="card card-green" style="max-width: 320px;">
-                    <span class="card-title">Faturamento Total</span>
-                    <span class="card-value">R$ {{ "%.2f"|format(valor_total_vendido) }}</span>
+        <div class="data-section" style="margin-top: 24px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                {% for produto, total in vendido_por_produto %}
+                <div class="card card-blue">
+                    <span class="card-title">{{ produto }}</span>
+                    <span class="card-value" style="font-size: 26px;">R$ {{ "%.2f"|format(total) }}</span>
                 </div>
+                {% else %}
+                <span style="color: #94a3b8;">Nenhuma venda registrada ainda.</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="data-section" style="margin-top: 24px;">
+            <h3 class="section-title">Total Vendido (R$)</h3>
+            <div class="card card-green" style="max-width: 320px;">
+                <span class="card-title">Faturamento Total</span>
+                <span class="card-value">R$ {{ "%.2f"|format(valor_total_vendido) }}</span>
             </div>
         </div>
     </main>
