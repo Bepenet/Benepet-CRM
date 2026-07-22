@@ -96,14 +96,10 @@
                     <span style="color: #94a3b8;">Nenhuma venda registrada ainda.</span>
                     {% endfor %}
                 </div>
-            </div>
-        </div>
-
-        <div class="data-section" style="margin-top: 24px;">
-            <h3 class="section-title">Total Vendido (R$)</h3>
-            <div class="card card-green" style="max-width: 320px;">
-                <span class="card-title">Faturamento Total</span>
-                <span class="card-value">R$ {{ "%.2f"|format(valor_total_vendido) }}</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 14px; border-top: 2px solid #e2e8f0;">
+                    <span style="font-weight: 700; color: #1e293b; font-size: 15px;">Total Vendido</span>
+                    <span style="font-weight: 800; font-size: 22px; color: #10b981;">R$ {{ "%.2f"|format(valor_total_vendido) }}</span>
+                </div>
             </div>
         </div>
     </main>
