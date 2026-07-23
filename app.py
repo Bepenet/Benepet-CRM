@@ -202,6 +202,8 @@ def dashboard():
             totais_por_produto[canonico]['quantidade'] += quantidade
             totais_por_produto[canonico]['valor'] += subtotal
         vendido_por_produto = sorted(totais_por_produto.items(), key=lambda item: item[1]['valor'], reverse=True)
+        for produto, dados in vendido_por_produto:
+            dados['quantidade_fmt'] = '{:,}'.format(dados['quantidade']).replace(',', '.')
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes = 0, 0, 0
         valor_total_vendido = 0

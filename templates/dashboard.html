@@ -79,27 +79,25 @@
                     <span class="card-value">{{ total_contatos_pendentes }}</span>
                 </div>
             </a>
-        </div>
 
-        <div class="data-section" style="margin-top: 24px;">
             <div class="card card-blue">
                 <span class="card-title">Total Vendido por Produto</span>
-                <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px;">
                     {% for produto, dados in vendido_por_produto %}
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;">
-                        <span style="font-weight: 600; color: #1e293b;">{{ produto }}</span>
-                        <span style="display: flex; align-items: baseline; gap: 14px;">
-                            <span style="color: #64748b; font-size: 14px;">{{ dados.quantidade }} un</span>
-                            <span style="font-weight: 700; font-size: 20px; color: #1e293b;">R$ {{ "%.2f"|format(dados.valor) }}</span>
-                        </span>
+                    <div style="padding-bottom: 10px; border-bottom: 1px solid #f1f5f9;">
+                        <div style="font-weight: 600; color: #1e293b; font-size: 13px;">{{ produto }}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 3px;">
+                            <span style="color: #64748b; font-size: 12px;">{{ dados.quantidade_fmt }} un</span>
+                            <span style="font-weight: 700; font-size: 15px; color: #1e293b;">R$ {{ "%.2f"|format(dados.valor) }}</span>
+                        </div>
                     </div>
                     {% else %}
-                    <span style="color: #94a3b8;">Nenhuma venda registrada ainda.</span>
+                    <span style="color: #94a3b8; font-size: 13px;">Nenhuma venda registrada ainda.</span>
                     {% endfor %}
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 14px; border-top: 2px solid #e2e8f0;">
-                    <span style="font-weight: 700; color: #1e293b; font-size: 15px;">Total Vendido</span>
-                    <span style="font-weight: 800; font-size: 22px; color: #10b981;">R$ {{ "%.2f"|format(valor_total_vendido) }}</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 12px; border-top: 2px solid #e2e8f0;">
+                    <span style="font-weight: 700; color: #1e293b; font-size: 13px;">Total Vendido</span>
+                    <span style="font-weight: 800; font-size: 17px; color: #10b981;">R$ {{ "%.2f"|format(valor_total_vendido) }}</span>
                 </div>
             </div>
         </div>
