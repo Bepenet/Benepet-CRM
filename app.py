@@ -75,6 +75,12 @@ def garantir_colunas_novas():
             conn.execute(text('ALTER TABLE cliente ADD COLUMN contato_desconsiderado BOOLEAN DEFAULT FALSE'))
             conn.commit()
 
+    colunas_usuario = [c['name'] for c in inspector.get_columns('usuario')]
+    if 'precisa_trocar_senha' not in colunas_usuario:
+        with db.engine.connect() as conn:
+            conn.execute(text('ALTER TABLE usuario ADD COLUMN precisa_trocar_senha BOOLEAN DEFAULT TRUE'))
+            conn.commit()
+
 @app.before_request
 def inicializar_banco_seguro():
     global _tabelas_verificadas
@@ -84,7 +90,7 @@ def inicializar_banco_seguro():
             garantir_colunas_novas()
             if not Usuario.query.first():
                 senha_criptografada = generate_password_hash('admin')
-                usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
+                usuario_padrao = Usuario(login='admin', senha=senha_criptografada, precisa_trocar_senha=True)
                 db.session.add(usuario_padrao)
                 db.session.commit()
             _tabelas_verificadas = True
@@ -93,6 +99,19 @@ def inicializar_banco_seguro():
 
 def usuario_esta_logado():
     return 'usuario' in session
+
+@app.before_request
+def forcar_troca_senha():
+    if not usuario_esta_logado():
+        return
+    if request.endpoint in ('trocar_senha', 'logout', 'static', None):
+        return
+    try:
+        user = Usuario.query.filter_by(login=session['usuario']).first()
+        if user and user.precisa_trocar_senha:
+            return redirect(url_for('trocar_senha'))
+    except Exception:
+        pass
 
 @app.route('/')
 def index():
@@ -135,6 +154,31 @@ def login():
 def logout():
     session.pop('usuario', None)
     return redirect(url_for('login'))
+
+@app.route('/trocar-senha', methods=['GET', 'POST'])
+def trocar_senha():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    user = Usuario.query.filter_by(login=session['usuario']).first()
+
+    if request.method == 'POST':
+        nova_senha = request.form.get('nova_senha')
+        confirmar_senha = request.form.get('confirmar_senha')
+
+        if not nova_senha or len(nova_senha) < 4:
+            flash('A nova senha precisa ter pelo menos 4 caracteres.', 'erro')
+        elif nova_senha != confirmar_senha:
+            flash('As senhas não coincidem.', 'erro')
+        else:
+            user.senha = generate_password_hash(nova_senha)
+            user.precisa_trocar_senha = False
+            db.session.commit()
+            flash('Senha alterada com sucesso!', 'sucesso')
+            return redirect(url_for('dashboard'))
+
+    primeiro_acesso = user.precisa_trocar_senha if user else True
+    return render_template('trocar_senha.html', primeiro_acesso=primeiro_acesso)
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
@@ -320,7 +364,7 @@ def usuarios():
             flash('Esse nome de usuário já existe!', 'erro')
         else:
             senha_segura = generate_password_hash(nova_senha)
-            novo_user = Usuario(login=novo_login, senha=senha_segura)
+            novo_user = Usuario(login=novo_login, senha=senha_segura, precisa_trocar_senha=True)
             db.session.add(novo_user)
             db.session.commit()
             flash('Usuário criado com sucesso!', 'sucesso')

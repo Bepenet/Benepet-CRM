@@ -7,6 +7,7 @@ class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     login = db.Column(db.String(80), unique=True, nullable=False)
     senha = db.Column(db.String(256), nullable=False)
+    precisa_trocar_senha = db.Column(db.Boolean, default=True)
 
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)

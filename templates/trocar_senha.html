@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Trocar Senha - BenePet CRM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .login-body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f7fa;
+        }
+
+        .login-card {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .login-logo {
+            max-width: 160px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+
+        .login-card h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .aviso-primeiro-acesso {
+            background-color: #fef3c7;
+            color: #92400e;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .alert { padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: 500; font-size: 14px; }
+        .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert.erro { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+
+        .login-form button {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+
+        .login-form button:hover {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+<body class="login-body">
+
+    <div class="login-card">
+        <img src="{{ url_for('static', filename='LOGO.png') }}" alt="Logo BENEPET" class="login-logo">
+        <h2>Trocar senha</h2>
+
+        {% if primeiro_acesso %}
+        <div class="aviso-primeiro-acesso">
+            🔒 Por segurança, defina uma nova senha antes de continuar.
+        </div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="/trocar-senha" method="POST" class="login-form">
+            <input type="password" name="nova_senha" placeholder="Nova senha" required autofocus minlength="4">
+            <input type="password" name="confirmar_senha" placeholder="Confirmar nova senha" required minlength="4">
+            <button type="submit">Salvar Nova Senha</button>
+        </form>
+    </div>
+
+</body>
+</html>
