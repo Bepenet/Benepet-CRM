@@ -79,8 +79,10 @@
                     <span class="card-value">{{ total_contatos_pendentes }}</span>
                 </div>
             </a>
+        </div>
 
-            <div class="card card-blue">
+        <div style="display: flex; justify-content: center; margin-top: 24px;">
+            <div class="card card-blue" style="width: 100%; max-width: 320px;">
                 <span class="card-title">Total Vendido por Produto</span>
                 <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px;">
                     {% for produto, dados in vendido_por_produto %}
@@ -88,7 +90,7 @@
                         <div style="font-weight: 600; color: #1e293b; font-size: 13px;">{{ produto }}</div>
                         <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 3px;">
                             <span style="color: #64748b; font-size: 12px;">{{ dados.quantidade_fmt }} un</span>
-                            <span style="font-weight: 700; font-size: 15px; color: #1e293b;">R$ {{ "%.2f"|format(dados.valor) }}</span>
+                            <span style="font-weight: 700; font-size: 15px; color: #1e293b;">R$ {{ dados.valor_fmt }}</span>
                         </div>
                     </div>
                     {% else %}
@@ -97,7 +99,7 @@
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; padding-top: 12px; border-top: 2px solid #e2e8f0;">
                     <span style="font-weight: 700; color: #1e293b; font-size: 13px;">Total Vendido</span>
-                    <span style="font-weight: 800; font-size: 17px; color: #10b981;">R$ {{ "%.2f"|format(valor_total_vendido) }}</span>
+                    <span style="font-weight: 800; font-size: 17px; color: #10b981;">R$ {{ valor_total_vendido_fmt }}</span>
                 </div>
             </div>
         </div>

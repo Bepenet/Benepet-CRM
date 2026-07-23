@@ -37,6 +37,10 @@ def nome_canonico_produto(nome):
             return canonico
     return normalizado or 'SEM NOME'
 
+def formatar_moeda(valor):
+    """Formata um número no padrão brasileiro: milhar com ponto, decimal com vírgula."""
+    return '{:,.2f}'.format(valor or 0).replace(',', 'X').replace('.', ',').replace('X', '.')
+
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
 if base_uri.startswith("postgres://"):
@@ -204,9 +208,13 @@ def dashboard():
         vendido_por_produto = sorted(totais_por_produto.items(), key=lambda item: item[1]['valor'], reverse=True)
         for produto, dados in vendido_por_produto:
             dados['quantidade_fmt'] = '{:,}'.format(dados['quantidade']).replace(',', '.')
+            dados['valor_fmt'] = formatar_moeda(dados['valor'])
+
+        valor_total_vendido_fmt = formatar_moeda(valor_total_vendido)
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes = 0, 0, 0
         valor_total_vendido = 0
+        valor_total_vendido_fmt = formatar_moeda(0)
         vendido_por_produto = []
 
     return render_template('dashboard.html',
@@ -214,6 +222,7 @@ def dashboard():
                            vendas_total=vendas_total,
                            total_contatos_pendentes=total_contatos_pendentes,
                            valor_total_vendido=valor_total_vendido,
+                           valor_total_vendido_fmt=valor_total_vendido_fmt,
                            vendido_por_produto=vendido_por_produto,
                            usuario_logado=session['usuario'])
 
