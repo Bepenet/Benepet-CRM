@@ -43,9 +43,35 @@
         .btn-reativar:hover { background: #dbeafe; }
         .alerta-vazio { text-align: center; color: #94a3b8; padding: 30px; }
         form.inline { display: inline; }
+
+        .mobile-topbar { display: none; }
+        .overlay-menu { display: none; }
+
+        @media (max-width: 768px) {
+            body { display: block; }
+            .sidebar { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+            .sidebar.aberta { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 20px; padding-top: 76px; }
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 14px;
+                position: fixed; top: 0; left: 0; right: 0; height: 56px;
+                background: #1e293b; color: white; padding: 0 16px; z-index: 999;
+            }
+            .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+            .mobile-topbar span { font-size: 17px; font-weight: bold; }
+            .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+            .custom-table { display: block; overflow-x: auto; white-space: nowrap; }
+            .acoes { flex-direction: column; align-items: stretch; }
+        }
     </style>
 </head>
 <body>
+
+    <div class="mobile-topbar">
+        <button onclick="alternarMenu()">☰</button>
+        <span>🐾 BenePet CRM</span>
+    </div>
+    <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
 
     <aside class="sidebar">
         <div class="sidebar-brand">
@@ -159,6 +185,13 @@
         </div>
         {% endif %}
     </main>
+
+    <script>
+    function alternarMenu() {
+        document.querySelector('.sidebar').classList.toggle('aberta');
+        document.getElementById('overlayMenu').classList.toggle('ativo');
+    }
+    </script>
 
 </body>
 </html>

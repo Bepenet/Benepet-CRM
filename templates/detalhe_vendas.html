@@ -88,6 +88,11 @@
             padding: 30px !important;
             font-style: italic;
         }
+        .tabela-scroll { overflow-x: auto; }
+        @media (max-width: 700px) {
+            .container-relatorio { padding: 15px; margin: 15px; }
+            .tabela-vendas { min-width: 560px; }
+        }
     </style>
 </head>
 <body>
@@ -101,6 +106,7 @@
             <p><strong>Prazo de Pagamento:</strong> {{ venda.prazo_pagamento or '-' }}</p>
             <p><strong>Valor Total:</strong> R$ {{ "%.2f"|format(venda.valor_total) }}</p>
 
+            <div class="tabela-scroll">
             <table class="tabela-vendas">
                 <thead>
                     <tr>
@@ -121,9 +127,11 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         {% else %}
             <h2 class="titulo-pagina">Histórico de Vendas Lançadas</h2>
 
+            <div class="tabela-scroll">
             <table class="tabela-vendas">
                 <thead>
                     <tr>
@@ -154,6 +162,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
         {% endif %}
     </div>
 </body>

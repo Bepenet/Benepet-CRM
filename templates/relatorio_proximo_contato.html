@@ -27,9 +27,34 @@
         .custom-table td { padding: 14px 16px; color: #334155; font-size: 15px; border-bottom: 1px solid #f1f5f9; }
         .custom-table tr:hover td { background-color: #f8fafc; }
         .badge { background: #fef3c7; color: #d97706; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+
+        .mobile-topbar { display: none; }
+        .overlay-menu { display: none; }
+
+        @media (max-width: 768px) {
+            body { display: block; }
+            .sidebar { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+            .sidebar.aberta { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 20px; padding-top: 76px; }
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 14px;
+                position: fixed; top: 0; left: 0; right: 0; height: 56px;
+                background: #1e293b; color: white; padding: 0 16px; z-index: 999;
+            }
+            .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+            .mobile-topbar span { font-size: 17px; font-weight: bold; }
+            .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+            .custom-table { display: block; overflow-x: auto; white-space: nowrap; }
+        }
     </style>
 </head>
 <body>
+
+    <div class="mobile-topbar">
+        <button onclick="alternarMenu()">☰</button>
+        <span>🐾 BenePet CRM</span>
+    </div>
+    <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
 
     <aside class="sidebar">
         <div class="sidebar-brand">
@@ -75,6 +100,13 @@
             </table>
         </div>
     </main>
+
+    <script>
+    function alternarMenu() {
+        document.querySelector('.sidebar').classList.toggle('aberta');
+        document.getElementById('overlayMenu').classList.toggle('ativo');
+    }
+    </script>
 
 </body>
 </html>

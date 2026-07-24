@@ -2,9 +2,13 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BENEPET - CRM</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
+        @media (max-width: 420px) {
+            .login-card { padding: 24px; max-width: 100%; margin: 0 16px; }
+        }
         .login-body {
             display: flex;
             justify-content: center;

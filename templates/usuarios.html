@@ -2,6 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciamento de Usuários - BenePet CRM</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -21,7 +22,7 @@
         
         <form method="POST" action="/usuarios" style="background:#f8f9fa; padding:20px; border-radius:8px; margin-bottom:30px;">
             <h3>Criar Novo Acesso</h3>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:15px;">
                 <div>
                     <label style="display:block; margin-bottom:5px;">Nome de Usuário (Login):</label>
                     <input type="text" name="usuario" placeholder="Ex: maria.pet" required style="width:100%; padding:8px; box-sizing:border-box;">
