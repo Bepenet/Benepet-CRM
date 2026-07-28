@@ -16,6 +16,7 @@ class Cliente(db.Model):
     endereco = db.Column(db.String(255))
     telefone = db.Column(db.String(20))  # Whats/Tel
     contato = db.Column(db.String(100))  # Pessoa de contato
+    vendedor = db.Column(db.String(100))  # Vendedor responsável pelo atendimento
     data_cadastro = db.Column(db.DateTime, nullable=False)
     dias_aviso = db.Column(db.Integer, default=30)  # 7, 15 ou 30 dias
     periodo_retorno = db.Column(db.Integer, default=30)  # Mantido por compatibilidade

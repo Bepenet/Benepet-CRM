@@ -102,6 +102,10 @@
                         <label for="contato">Pessoa de Contato</label>
                         <input type="text" id="contato" name="contato" placeholder="Nome do contato">
                     </div>
+                    <div class="form-group">
+                        <label for="vendedor">Vendedor</label>
+                        <input type="text" id="vendedor" name="vendedor" placeholder="Quem atende este cliente">
+                    </div>
                 </div>
 
                 <div class="form-grid">
@@ -135,6 +139,7 @@
                     <th>CPF/CNPJ</th>
                     <th>Whats/Tel</th>
                     <th>Contato</th>
+                    <th>Vendedor</th>
                     <th>Endereço</th>
                     <th>Data Cadastro</th>
                     <th>Aviso Retorno</th>
@@ -148,6 +153,7 @@
                     <td>{{ cliente.cpf_cnpj or '-' }}</td>
                     <td>{{ cliente.telefone or '-' }}</td>
                     <td>{{ cliente.contato or '-' }}</td>
+                    <td>{{ cliente.vendedor or '-' }}</td>
                     <td>{{ cliente.endereco or '-' }}</td>
                     <td>{{ cliente.data_cadastro.strftime('%d/%m/%Y') }}</td>
                     <td><span style="background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 4px; font-weight: bold;">{{ cliente.dias_aviso }} dias</span></td>
@@ -155,7 +161,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; color: #95a5a6;">Nenhum cliente cadastrado ainda.</td>
+                    <td colspan="9" style="text-align: center; color: #95a5a6;">Nenhum cliente cadastrado ainda.</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -78,6 +78,9 @@ def garantir_colunas_novas():
         if 'contato_desconsiderado' not in colunas_cliente:
             conn.execute(text('ALTER TABLE cliente ADD COLUMN contato_desconsiderado BOOLEAN DEFAULT FALSE'))
             conn.commit()
+        if 'vendedor' not in colunas_cliente:
+            conn.execute(text('ALTER TABLE cliente ADD COLUMN vendedor VARCHAR(100)'))
+            conn.commit()
 
     colunas_usuario = [c['name'] for c in inspector.get_columns('usuario')]
     if 'precisa_trocar_senha' not in colunas_usuario:
@@ -241,6 +244,50 @@ def relatorio_proximo_contato():
     clientes = sorted(todos_clientes, key=lambda c: c.proximo_contato)
     return render_template('relatorio_proximo_contato.html', clientes=clientes)
 
+@app.route('/relatorios/vendas-por-vendedor')
+def relatorio_vendas_por_vendedor():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    vendas = Venda.query.join(Cliente).all()
+    totais = {}
+    for venda in vendas:
+        vendedor = venda.cliente.vendedor or 'Sem vendedor definido'
+        if vendedor not in totais:
+            totais[vendedor] = {'quantidade_vendas': 0, 'valor': 0}
+        totais[vendedor]['quantidade_vendas'] += 1
+        totais[vendedor]['valor'] += venda.valor_total
+
+    for vendedor, dados in totais.items():
+        dados['valor_fmt'] = formatar_moeda(dados['valor'])
+
+    resultado = sorted(totais.items(), key=lambda item: item[1]['valor'], reverse=True)
+    return render_template('relatorio_vendas_vendedor.html', vendedores=resultado)
+
+@app.route('/relatorios/vendas-por-mes')
+def relatorio_vendas_por_mes():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    meses_pt = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+    vendas = Venda.query.all()
+    totais = {}
+    for venda in vendas:
+        chave = (venda.data.year, venda.data.month)
+        if chave not in totais:
+            totais[chave] = {'quantidade_vendas': 0, 'valor': 0}
+        totais[chave]['quantidade_vendas'] += 1
+        totais[chave]['valor'] += venda.valor_total
+
+    for chave, dados in totais.items():
+        dados['valor_fmt'] = formatar_moeda(dados['valor'])
+        dados['label'] = f"{meses_pt[chave[1]]}/{chave[0]}"
+
+    resultado = sorted(totais.items(), key=lambda item: item[0], reverse=True)
+    return render_template('relatorio_vendas_mes.html', meses=resultado)
+
 @app.route('/contatos-pendentes')
 def contatos_pendentes():
     if not usuario_esta_logado():
@@ -301,6 +348,7 @@ def clientes():
         endereco = request.form.get('endereco')
         telefone = request.form.get('telefone')
         contato = request.form.get('contato')
+        vendedor = request.form.get('vendedor')
         dias_aviso = int(request.form.get('dias_aviso', 30))
         data_cadastro_str = request.form.get('data_cadastro')
 
@@ -315,6 +363,7 @@ def clientes():
             endereco=endereco,
             telefone=telefone,
             contato=contato,
+            vendedor=vendedor,
             data_cadastro=data_cadastro,
             dias_aviso=dias_aviso,
             periodo_retorno=dias_aviso
@@ -341,6 +390,7 @@ def detalhe_cliente(id):
         cliente.endereco = request.form.get('endereco')
         cliente.telefone = request.form.get('telefone')
         cliente.contato = request.form.get('contato')
+        cliente.vendedor = request.form.get('vendedor')
         dias_aviso = int(request.form.get('dias_aviso', 30))
         cliente.dias_aviso = dias_aviso
         cliente.periodo_retorno = dias_aviso
