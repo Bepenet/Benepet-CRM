@@ -1,5 +1,6 @@
 import os
 import unicodedata
+from urllib.parse import quote
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text, func
@@ -40,6 +41,33 @@ def nome_canonico_produto(nome):
 def formatar_moeda(valor):
     """Formata um número no padrão brasileiro: milhar com ponto, decimal com vírgula."""
     return '{:,.2f}'.format(valor or 0).replace(',', 'X').replace('.', ',').replace('X', '.')
+
+# Número que recebe o aviso de vendas confirmadas para emissão de NF (com DDI+DDD)
+WHATSAPP_NF_NUMERO = os.environ.get('WHATSAPP_NF_NUMERO', '5547988139107')
+
+def montar_link_whatsapp_nf(venda):
+    """Monta o link do WhatsApp (wa.me) com os dados da venda prontos para gerar a NF."""
+    cliente = venda.cliente
+    linhas = [
+        "📄 *Nova venda confirmada - gerar NF*",
+        f"Cliente (Razão Social): {cliente.nome}",
+    ]
+    if cliente.nome_fantasia:
+        linhas.append(f"Nome Fantasia: {cliente.nome_fantasia}")
+    linhas.append(f"CNPJ/CPF: {cliente.cpf_cnpj or 'não informado'}")
+    if cliente.endereco:
+        linhas.append(f"Endereço: {cliente.endereco}")
+    linhas.append(f"Data: {venda.data_efetiva.strftime('%d/%m/%Y')}")
+    linhas.append(f"Prazo de Pagamento: {venda.prazo_pagamento or 'não informado'}")
+    linhas.append("")
+    linhas.append("Itens:")
+    for item in venda.itens:
+        linhas.append(f"- {item.produto} x{item.quantidade} = R$ {formatar_moeda(item.valor_subtotal)}")
+    linhas.append("")
+    linhas.append(f"*Total: R$ {formatar_moeda(venda.valor_total)}*")
+
+    mensagem = "\n".join(linhas)
+    return f"https://wa.me/{WHATSAPP_NF_NUMERO}?text={quote(mensagem)}"
 
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
@@ -322,6 +350,7 @@ def confirmar_consignacao(id):
         venda.data_confirmacao = datetime.utcnow()
         db.session.commit()
         flash(f'Consignação #{venda.id} confirmada como venda!', 'sucesso')
+        flash(montar_link_whatsapp_nf(venda), 'whatsapp_link')
     return redirect(url_for('consignacoes_pendentes'))
 
 @app.route('/contatos-pendentes')
@@ -512,7 +541,12 @@ def salvar_venda_multipla():
             db.session.add(novo_item)
 
         db.session.commit()
-        return jsonify({"mensagem": "Venda gravada com sucesso!"}), 200
+
+        link_whatsapp = None
+        if nova_venda.status == 'Confirmada':
+            link_whatsapp = montar_link_whatsapp_nf(nova_venda)
+
+        return jsonify({"mensagem": "Venda gravada com sucesso!", "link_whatsapp": link_whatsapp}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500

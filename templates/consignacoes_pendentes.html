@@ -81,13 +81,25 @@
         <a href="/dashboard" class="voltar-btn">← Voltar para o Dashboard</a>
         <h2 class="header-title">📦 Consignações Pendentes</h2>
 
+        {% set link_whatsapp_ns = namespace(url=None) %}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert {{ category }}">{{ message }}</div>
+                    {% if category == 'whatsapp_link' %}
+                        {% set link_whatsapp_ns.url = message %}
+                    {% else %}
+                        <div class="alert {{ category }}">{{ message }}</div>
+                    {% endif %}
                 {% endfor %}
             {% endif %}
         {% endwith %}
+
+        {% if link_whatsapp_ns.url %}
+        <div class="alert sucesso" style="text-align: left;">
+            📲 Abrindo o WhatsApp para enviar os dados da NF...
+            <a href="{{ link_whatsapp_ns.url }}" target="_blank" style="color: #155724; text-decoration: underline; font-weight: bold;">Clique aqui se não abrir automaticamente</a>
+        </div>
+        {% endif %}
 
         <div class="data-section">
             <table class="custom-table">
@@ -129,6 +141,10 @@
         document.getElementById('sidebar').classList.toggle('aberta');
         document.getElementById('overlayMenu').classList.toggle('ativo');
     }
+
+    {% if link_whatsapp_ns.url %}
+    window.open("{{ link_whatsapp_ns.url }}", '_blank');
+    {% endif %}
     </script>
 
 </body>

@@ -180,12 +180,16 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             })
-            .then(res => {
-                if(res.ok) {
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok) {
                     if (payload.tipo_venda === 'Consignado') {
                         alert("Consignação registrada! Ela vai aparecer em 'Consignações Pendentes' até você confirmar a revenda.");
                     } else {
-                        alert("Perfeito! Venda salva com sucesso!");
+                        alert("Perfeito! Venda salva com sucesso! Abrindo o WhatsApp para enviar os dados da NF...");
+                        if (data.link_whatsapp) {
+                            window.open(data.link_whatsapp, '_blank');
+                        }
                     }
                     window.location.href = '/dashboard';
                 } else {
