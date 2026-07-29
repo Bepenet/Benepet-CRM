@@ -25,9 +25,10 @@ class Cliente(db.Model):
 
     @property
     def ultima_venda_data(self):
-        """Data da venda mais recente desse cliente, ou None se nunca comprou."""
-        if self.vendas:
-            return max(v.data for v in self.vendas)
+        """Data da venda confirmada mais recente desse cliente (ignora consignações pendentes), ou None se nunca comprou."""
+        vendas_confirmadas = [v for v in self.vendas if v.status == 'Confirmada']
+        if vendas_confirmadas:
+            return max(v.data_efetiva for v in vendas_confirmadas)
         return None
 
     @property
@@ -58,8 +59,18 @@ class Venda(db.Model):
     data = db.Column(db.DateTime, nullable=False)
     valor_total = db.Column(db.Float, nullable=False)
     prazo_pagamento = db.Column(db.String(50))
+    tipo = db.Column(db.String(20), default='Normal')  # 'Normal' ou 'Consignado'
+    status = db.Column(db.String(20), default='Confirmada')  # 'Confirmada' ou 'Pendente'
+    data_confirmacao = db.Column(db.DateTime)  # quando uma consignação foi confirmada como vendida
 
     cliente = db.relationship('Cliente', backref=db.backref('vendas', lazy=True))
+
+    @property
+    def data_efetiva(self):
+        """Data que deve valer para relatórios: a de confirmação, se for uma consignação já confirmada."""
+        if self.tipo == 'Consignado' and self.data_confirmacao:
+            return self.data_confirmacao
+        return self.data
 
 class ItemVenda(db.Model):
     id = db.Column(db.Integer, primary_key=True)

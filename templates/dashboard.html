@@ -25,6 +25,7 @@
         .card-blue::before { background-color: #3b82f6; }
         .card-green::before { background-color: #10b981; }
         .card-red::before { background-color: #ef4444; }
+        .card-orange::before { background-color: #f59e0b; }
         .card-title { font-size: 14px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; }
         .card-value { font-size: 36px; font-weight: 700; color: #1e293b; margin-top: 10px; }
 
@@ -109,6 +110,12 @@
                 <div class="card card-red" style="cursor: pointer;">
                     <span class="card-title">Contatos Pendentes</span>
                     <span class="card-value">{{ total_contatos_pendentes }}</span>
+                </div>
+            </a>
+            <a href="/consignacoes-pendentes" style="text-decoration: none; color: inherit;">
+                <div class="card card-orange" style="cursor: pointer;">
+                    <span class="card-title">Consignações Pendentes</span>
+                    <span class="card-value">{{ total_consignacoes_pendentes }}</span>
                 </div>
             </a>
         </div>

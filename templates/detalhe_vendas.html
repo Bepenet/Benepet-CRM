@@ -68,6 +68,14 @@
             font-size: 12px;
             font-weight: bold;
         }
+        .status-pendente {
+            background-color: #fef3c7;
+            color: #92400e;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
         .btn-ver {
             background: #007bff;
             color: white;
@@ -151,7 +159,13 @@
                         <td><strong>{{ venda.cliente.nome }}</strong></td>
                         <td>{{ venda.data.strftime('%d/%m/%Y') }}</td>
                         <td>{{ venda.prazo_pagamento or '-' }}</td>
-                        <td><span class="status-venda">Concluída</span></td>
+                        <td>
+                            {% if venda.status == 'Confirmada' %}
+                                <span class="status-venda">Confirmada</span>
+                            {% else %}
+                                <span class="status-pendente">Consignado (Pendente)</span>
+                            {% endif %}
+                        </td>
                         <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
                         <td><a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar Venda</a></td>
                     </tr>

@@ -65,9 +65,18 @@ def garantir_colunas_novas():
     inspector = inspect(db.engine)
 
     colunas_venda = [c['name'] for c in inspector.get_columns('venda')]
-    if 'prazo_pagamento' not in colunas_venda:
-        with db.engine.connect() as conn:
+    with db.engine.connect() as conn:
+        if 'prazo_pagamento' not in colunas_venda:
             conn.execute(text('ALTER TABLE venda ADD COLUMN prazo_pagamento VARCHAR(50)'))
+            conn.commit()
+        if 'tipo' not in colunas_venda:
+            conn.execute(text("ALTER TABLE venda ADD COLUMN tipo VARCHAR(20) DEFAULT 'Normal'"))
+            conn.commit()
+        if 'status' not in colunas_venda:
+            conn.execute(text("ALTER TABLE venda ADD COLUMN status VARCHAR(20) DEFAULT 'Confirmada'"))
+            conn.commit()
+        if 'data_confirmacao' not in colunas_venda:
+            conn.execute(text('ALTER TABLE venda ADD COLUMN data_confirmacao TIMESTAMP'))
             conn.commit()
 
     colunas_cliente = [c['name'] for c in inspector.get_columns('cliente')]
@@ -194,13 +203,15 @@ def dashboard():
 
     try:
         clientes_total = Cliente.query.count()
-        vendas_total = Venda.query.count()
+        vendas_total = Venda.query.filter_by(status='Confirmada').count()
         todos_clientes = Cliente.query.all()
         total_contatos_pendentes = len([c for c in todos_clientes if c.precisa_contato])
+        total_consignacoes_pendentes = Venda.query.filter_by(tipo='Consignado', status='Pendente').count()
 
-        valor_total_vendido = db.session.query(func.sum(Venda.valor_total)).scalar() or 0
+        valor_total_vendido = db.session.query(func.sum(Venda.valor_total)).filter(Venda.status == 'Confirmada').scalar() or 0
 
-        itens_vendidos = db.session.query(ItemVenda.produto, ItemVenda.quantidade, ItemVenda.valor_subtotal).all()
+        itens_vendidos = db.session.query(ItemVenda.produto, ItemVenda.quantidade, ItemVenda.valor_subtotal)\
+            .join(Venda).filter(Venda.status == 'Confirmada').all()
         totais_por_produto = {}
         for produto, quantidade, subtotal in itens_vendidos:
             canonico = nome_canonico_produto(produto)
@@ -215,7 +226,7 @@ def dashboard():
 
         valor_total_vendido_fmt = formatar_moeda(valor_total_vendido)
     except Exception as e:
-        clientes_total, vendas_total, total_contatos_pendentes = 0, 0, 0
+        clientes_total, vendas_total, total_contatos_pendentes, total_consignacoes_pendentes = 0, 0, 0, 0
         valor_total_vendido = 0
         valor_total_vendido_fmt = formatar_moeda(0)
         vendido_por_produto = []
@@ -224,6 +235,7 @@ def dashboard():
                            clientes_total=clientes_total,
                            vendas_total=vendas_total,
                            total_contatos_pendentes=total_contatos_pendentes,
+                           total_consignacoes_pendentes=total_consignacoes_pendentes,
                            valor_total_vendido=valor_total_vendido,
                            valor_total_vendido_fmt=valor_total_vendido_fmt,
                            vendido_por_produto=vendido_por_produto,
@@ -249,7 +261,7 @@ def relatorio_vendas_por_vendedor():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
-    vendas = Venda.query.join(Cliente).all()
+    vendas = Venda.query.join(Cliente).filter(Venda.status == 'Confirmada').all()
     totais = {}
     for venda in vendas:
         vendedor = venda.cliente.vendedor or 'Sem vendedor definido'
@@ -272,10 +284,10 @@ def relatorio_vendas_por_mes():
     meses_pt = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-    vendas = Venda.query.all()
+    vendas = Venda.query.filter_by(status='Confirmada').all()
     totais = {}
     for venda in vendas:
-        chave = (venda.data.year, venda.data.month)
+        chave = (venda.data_efetiva.year, venda.data_efetiva.month)
         if chave not in totais:
             totais[chave] = {'quantidade_vendas': 0, 'valor': 0}
         totais[chave]['quantidade_vendas'] += 1
@@ -287,6 +299,27 @@ def relatorio_vendas_por_mes():
 
     resultado = sorted(totais.items(), key=lambda item: item[0], reverse=True)
     return render_template('relatorio_vendas_mes.html', meses=resultado)
+
+@app.route('/consignacoes-pendentes')
+def consignacoes_pendentes():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    pendentes = Venda.query.filter_by(tipo='Consignado', status='Pendente').order_by(Venda.data.desc()).all()
+    return render_template('consignacoes_pendentes.html', pendentes=pendentes)
+
+@app.route('/vendas/<int:id>/confirmar_consignacao', methods=['POST'])
+def confirmar_consignacao(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    venda = Venda.query.get_or_404(id)
+    if venda.tipo == 'Consignado' and venda.status == 'Pendente':
+        venda.status = 'Confirmada'
+        venda.data_confirmacao = datetime.utcnow()
+        db.session.commit()
+        flash(f'Consignação #{venda.id} confirmada como venda!', 'sucesso')
+    return redirect(url_for('consignacoes_pendentes'))
 
 @app.route('/contatos-pendentes')
 def contatos_pendentes():
@@ -445,11 +478,20 @@ def salvar_venda_multipla():
     valor_total = dados.get('valor_total')
     itens = dados.get('itens')
     prazo_pagamento = dados.get('prazo_pagamento')
+    tipo_venda = dados.get('tipo_venda', 'Normal')
 
     data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
+    status_venda = 'Pendente' if tipo_venda == 'Consignado' else 'Confirmada'
 
     try:
-        nova_venda = Venda(cliente_id=cliente_id, data=data_venda, valor_total=valor_total, prazo_pagamento=prazo_pagamento)
+        nova_venda = Venda(
+            cliente_id=cliente_id,
+            data=data_venda,
+            valor_total=valor_total,
+            prazo_pagamento=prazo_pagamento,
+            tipo=tipo_venda,
+            status=status_venda
+        )
         db.session.add(nova_venda)
         db.session.flush()
 

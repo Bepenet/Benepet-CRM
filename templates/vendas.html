@@ -17,6 +17,19 @@
     <div class="container" style="max-width: 900px; margin: 0 auto; padding: 20px;">
         <h2>🛒 Lançamento de Venda Múltipla</h2>
 
+        <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;">
+            <label style="display:block; margin-bottom:8px; font-weight:bold;">Tipo de Venda:</label>
+            <label style="margin-right: 20px; cursor: pointer;">
+                <input type="radio" name="tipo_venda" value="Normal" checked onchange="atualizarTipoVenda()"> Venda Normal
+            </label>
+            <label style="cursor: pointer;">
+                <input type="radio" name="tipo_venda" value="Consignado" onchange="atualizarTipoVenda()"> Consignado
+            </label>
+            <p id="aviso_consignado" style="display:none; margin-top:10px; color:#4338ca; font-size:13px;">
+                📦 O produto fica com o cliente sem gerar venda ainda. Quando ele avisar que revendeu, você confirma em "Consignações Pendentes" e aí sim vira uma venda de verdade.
+            </p>
+        </div>
+
         <div class="linha-topo" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end;">
             <div style="flex: 1;">
                 <label style="display:block; margin-bottom:5px; font-weight:bold;">Selecione o Cliente:</label>
@@ -142,6 +155,11 @@
             document.getElementById('total_geral').innerText = `R$ ${total.toFixed(2)}`;
         }
 
+        function atualizarTipoVenda() {
+            const consignado = document.querySelector('input[name="tipo_venda"]:checked').value === 'Consignado';
+            document.getElementById('aviso_consignado').style.display = consignado ? 'block' : 'none';
+        }
+
         function finalizarVenda() {
             if (carrinho.length === 0) {
                 alert("O carrinho está vazio! Adicione pelo menos um item.");
@@ -153,7 +171,8 @@
                 data: document.getElementById('data_venda').value,
                 valor_total: carrinho.reduce((sum, item) => sum + item.valor_subtotal, 0),
                 itens: carrinho,
-                prazo_pagamento: document.getElementById('prazo_pagamento').value
+                prazo_pagamento: document.getElementById('prazo_pagamento').value,
+                tipo_venda: document.querySelector('input[name="tipo_venda"]:checked').value
             };
 
             fetch('/salvar_venda_multipla', {
@@ -163,7 +182,11 @@
             })
             .then(res => {
                 if(res.ok) {
-                    alert("Perfeito! Venda salva com sucesso!");
+                    if (payload.tipo_venda === 'Consignado') {
+                        alert("Consignação registrada! Ela vai aparecer em 'Consignações Pendentes' até você confirmar a revenda.");
+                    } else {
+                        alert("Perfeito! Venda salva com sucesso!");
+                    }
                     window.location.href = '/dashboard';
                 } else {
                     alert("Erro interno ao tentar salvar a venda.");
