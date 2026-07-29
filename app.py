@@ -90,6 +90,9 @@ def garantir_colunas_novas():
         if 'vendedor' not in colunas_cliente:
             conn.execute(text('ALTER TABLE cliente ADD COLUMN vendedor VARCHAR(100)'))
             conn.commit()
+        if 'nome_fantasia' not in colunas_cliente:
+            conn.execute(text('ALTER TABLE cliente ADD COLUMN nome_fantasia VARCHAR(100)'))
+            conn.commit()
 
     colunas_usuario = [c['name'] for c in inspector.get_columns('usuario')]
     if 'precisa_trocar_senha' not in colunas_usuario:
@@ -377,6 +380,7 @@ def clientes():
 
     if request.method == 'POST':
         nome = request.form.get('nome')
+        nome_fantasia = request.form.get('nome_fantasia')
         cpf_cnpj = request.form.get('cpf_cnpj')
         endereco = request.form.get('endereco')
         telefone = request.form.get('telefone')
@@ -392,6 +396,7 @@ def clientes():
 
         novo_cliente = Cliente(
             nome=nome,
+            nome_fantasia=nome_fantasia,
             cpf_cnpj=cpf_cnpj,
             endereco=endereco,
             telefone=telefone,
@@ -419,6 +424,7 @@ def detalhe_cliente(id):
 
     if request.method == 'POST':
         cliente.nome = request.form.get('nome')
+        cliente.nome_fantasia = request.form.get('nome_fantasia')
         cliente.cpf_cnpj = request.form.get('cpf_cnpj')
         cliente.endereco = request.form.get('endereco')
         cliente.telefone = request.form.get('telefone')

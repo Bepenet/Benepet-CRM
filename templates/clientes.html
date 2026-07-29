@@ -87,8 +87,12 @@
             <form action="/clientes" method="POST">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="nome">Nome Completo / Razão Social *</label>
-                        <input type="text" id="nome" name="nome" required placeholder="Ex: João Silva">
+                        <label for="nome">Razão Social *</label>
+                        <input type="text" id="nome" name="nome" required placeholder="Ex: João Silva Comércio Ltda">
+                    </div>
+                    <div class="form-group">
+                        <label for="nome_fantasia">Nome Fantasia</label>
+                        <input type="text" id="nome_fantasia" name="nome_fantasia" placeholder="Ex: Pet Shop do João">
                     </div>
                     <div class="form-group">
                         <label for="cpf_cnpj">CNPJ / CPF</label>
@@ -135,7 +139,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Nome</th>
+                    <th>Cliente</th>
                     <th>CPF/CNPJ</th>
                     <th>Whats/Tel</th>
                     <th>Contato</th>
@@ -149,7 +153,12 @@
             <tbody>
                 {% for cliente in clientes %}
                 <tr style="cursor: pointer;" onclick="window.location='/clientes/{{ cliente.id }}'">
-                    <td><strong>{{ cliente.nome }}</strong></td>
+                    <td>
+                        <strong>{{ cliente.nome_exibicao }}</strong>
+                        {% if cliente.nome_fantasia %}
+                        <br><span style="font-size: 12px; color: #95a5a6;">{{ cliente.nome }}</span>
+                        {% endif %}
+                    </td>
                     <td>{{ cliente.cpf_cnpj or '-' }}</td>
                     <td>{{ cliente.telefone or '-' }}</td>
                     <td>{{ cliente.contato or '-' }}</td>

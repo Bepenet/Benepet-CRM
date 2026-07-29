@@ -103,7 +103,7 @@
                 <tbody>
                     {% for venda in pendentes %}
                     <tr>
-                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ venda.cliente.id }}">{{ venda.cliente.nome }}</a></td>
+                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ venda.cliente.id }}">{{ venda.cliente.nome_exibicao }}</a></td>
                         <td>{{ venda.data.strftime('%d/%m/%Y') }}</td>
                         <td style="font-weight: 700;">R$ {{ "%.2f"|format(venda.valor_total) }}</td>
                         <td><span class="badge-pendente">Aguardando revenda</span></td>

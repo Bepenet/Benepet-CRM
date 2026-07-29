@@ -75,7 +75,7 @@
 
     <div class="content">
         <div class="header">
-            <h1>{{ cliente.nome }}</h1>
+            <h1>{{ cliente.nome_exibicao }}</h1>
             <a href="/clientes" class="voltar-btn">← Voltar para a lista</a>
         </div>
 
@@ -92,8 +92,12 @@
             <form action="/clientes/{{ cliente.id }}" method="POST">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="nome">Nome Completo / Razão Social *</label>
+                        <label for="nome">Razão Social *</label>
                         <input type="text" id="nome" name="nome" required value="{{ cliente.nome }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="nome_fantasia">Nome Fantasia</label>
+                        <input type="text" id="nome_fantasia" name="nome_fantasia" value="{{ cliente.nome_fantasia or '' }}">
                     </div>
                     <div class="form-group">
                         <label for="cpf_cnpj">CNPJ / CPF</label>

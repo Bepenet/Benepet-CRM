@@ -112,7 +112,7 @@
                 <tbody>
                     {% for c in pendentes %}
                     <tr>
-                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ c.id }}">{{ c.nome }}</a></td>
+                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ c.id }}">{{ c.nome_exibicao }}</a></td>
                         <td>{{ c.telefone or '-' }}</td>
                         <td>{{ c.ultima_venda_data.strftime('%d/%m/%Y') if c.ultima_venda_data else 'Nunca comprou' }}</td>
                         <td>
@@ -170,7 +170,7 @@
                 <tbody>
                     {% for c in desconsiderados %}
                     <tr>
-                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ c.id }}">{{ c.nome }}</a></td>
+                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ c.id }}">{{ c.nome_exibicao }}</a></td>
                         <td>{{ c.telefone or '-' }}</td>
                         <td><span class="badge-cinza">Desconsiderado</span></td>
                         <td>

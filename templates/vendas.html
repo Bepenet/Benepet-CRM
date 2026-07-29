@@ -35,7 +35,7 @@
                 <label style="display:block; margin-bottom:5px; font-weight:bold;">Selecione o Cliente:</label>
                 <select id="cliente_id" style="width:100%; padding:8px;">
                     {% for c in clientes %}
-                        <option value="{{ c.id }}">{{ c.nome }}</option>
+                        <option value="{{ c.id }}">{{ c.nome_exibicao }}</option>
                     {% endfor %}
                 </select>
             </div>

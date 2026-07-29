@@ -11,7 +11,8 @@ class Usuario(db.Model):
 
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
+    nome = db.Column(db.String(100), nullable=False)  # Razão Social
+    nome_fantasia = db.Column(db.String(100))
     cpf_cnpj = db.Column(db.String(20))
     endereco = db.Column(db.String(255))
     telefone = db.Column(db.String(20))  # Whats/Tel
@@ -22,6 +23,11 @@ class Cliente(db.Model):
     periodo_retorno = db.Column(db.Integer, default=30)  # Mantido por compatibilidade
     contato_adiado_ate = db.Column(db.DateTime)  # lembrete adiado manualmente até essa data
     contato_desconsiderado = db.Column(db.Boolean, default=False)  # lembrete ignorado permanentemente
+
+    @property
+    def nome_exibicao(self):
+        """Nome usado para identificar o cliente nas telas: nome fantasia, com razão social como reserva."""
+        return self.nome_fantasia or self.nome
 
     @property
     def ultima_venda_data(self):
