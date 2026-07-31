@@ -761,6 +761,34 @@ def detalhar_venda(id):
     return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True,
                            hoje=datetime.utcnow())
 
+@app.route('/vendas/<int:id>/duplicar')
+def duplicar_venda(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    venda_origem = Venda.query.get_or_404(id)
+    clientes = Cliente.query.all()
+    vendedores = Vendedor.query.order_by(Vendedor.nome).all()
+
+    dados = {
+        'cliente_id': venda_origem.cliente_id,
+        'prazo_pagamento': venda_origem.prazo_pagamento,
+        'vendedor': venda_origem.vendedor or '',
+        'tipo_venda': venda_origem.tipo or 'Normal',
+        'itens': [
+            {
+                'produto': item.produto,
+                'quantidade': item.quantidade,
+                'valor_unitario': item.valor_unitario,
+                'valor_subtotal': item.valor_subtotal,
+            }
+            for item in venda_origem.itens
+        ],
+    }
+    return render_template('vendas.html', clientes=clientes, vendas=[],
+                           vendedores=vendedores, duplicar_dados=dados,
+                           venda_origem_id=venda_origem.id)
+
 @app.route('/vendas/<int:id>/editar', methods=['GET', 'POST'])
 def editar_venda(id):
     if not usuario_esta_logado():

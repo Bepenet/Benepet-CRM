@@ -66,13 +66,20 @@
     <div class="container" style="max-width: 900px; margin: 0 auto; padding: 20px; box-sizing: border-box; flex-grow: 1;">
         <h2>🛒 Lançamento de Venda Múltipla</h2>
 
+        {% if duplicar_dados %}
+        <div style="background: #fff7ed; border: 1px solid #fdba74; padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+            🔁 <strong>Duplicando a venda #{{ venda_origem_id }}.</strong> Os itens já foram copiados — ajuste o que precisar e grave a nova venda.
+            <a href="/vendas/relatorio" style="color: #b45309; font-weight: 600;">Cancelar</a>
+        </div>
+        {% endif %}
+
         <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;">
             <label style="display:block; margin-bottom:8px; font-weight:bold;">Tipo de Venda:</label>
             <label style="margin-right: 20px; cursor: pointer;">
-                <input type="radio" name="tipo_venda" value="Normal" checked onchange="atualizarTipoVenda()"> Venda Normal
+                <input type="radio" name="tipo_venda" value="Normal" {% if not duplicar_dados or duplicar_dados.tipo_venda != 'Consignado' %}checked{% endif %} onchange="atualizarTipoVenda()"> Venda Normal
             </label>
             <label style="cursor: pointer;">
-                <input type="radio" name="tipo_venda" value="Consignado" onchange="atualizarTipoVenda()"> Consignado
+                <input type="radio" name="tipo_venda" value="Consignado" {% if duplicar_dados and duplicar_dados.tipo_venda == 'Consignado' %}checked{% endif %} onchange="atualizarTipoVenda()"> Consignado
             </label>
             <p id="aviso_consignado" style="display:none; margin-top:10px; color:#4338ca; font-size:13px;">
                 📦 O produto fica com o cliente sem gerar venda ainda. Quando ele avisar que revendeu, você confirma em "Consignações Pendentes" e aí sim vira uma venda de verdade.
@@ -84,7 +91,7 @@
                 <label style="display:block; margin-bottom:5px; font-weight:bold;">Selecione o Cliente:</label>
                 <select id="cliente_id" style="width:100%; padding:8px;">
                     {% for c in clientes %}
-                        <option value="{{ c.id }}">{{ c.nome_exibicao }}</option>
+                        <option value="{{ c.id }}" {% if duplicar_dados and duplicar_dados.cliente_id == c.id %}selected{% endif %}>{{ c.nome_exibicao }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -95,15 +102,10 @@
             <div style="flex: 1;">
                 <label style="display:block; margin-bottom:5px; font-weight:bold;">Prazo de Pagamento:</label>
                 <select id="prazo_pagamento" style="width:100%; padding:8px;">
-                    <option value="A Vista (Pix)">A Vista (Pix)</option>
-                    <option value="A Vista (Dinheiro)">A Vista (Dinheiro)</option>
-                    <option value="Prazo 7 dias">Prazo 7 dias</option>
-                    <option value="Prazo 15 dias">Prazo 15 dias</option>
-                    <option value="Prazo 30 dias">Prazo 30 dias</option>
-                    <option value="Parcelado 30/60">Parcelado 30/60</option>
-                    <option value="Parcelado 30/45/60">Parcelado 30/45/60</option>
-                    <option value="Parcelado 15/30/45">Parcelado 15/30/45</option>
-                    <option value="Parcelado 15/30/45/60">Parcelado 15/30/45/60</option>
+                    {% set prazos = ['A Vista (Pix)', 'A Vista (Dinheiro)', 'Prazo 7 dias', 'Prazo 15 dias', 'Prazo 30 dias', 'Parcelado 30/60', 'Parcelado 30/45/60', 'Parcelado 15/30/45', 'Parcelado 15/30/45/60'] %}
+                    {% for p in prazos %}
+                        <option value="{{ p }}" {% if duplicar_dados and duplicar_dados.prazo_pagamento == p %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div style="flex: 1;">
@@ -111,7 +113,7 @@
                 <select id="vendedor" style="width:100%; padding:8px;">
                     <option value="">— Selecionar —</option>
                     {% for v in vendedores %}
-                        <option value="{{ v.nome }}">{{ v.nome }}</option>
+                        <option value="{{ v.nome }}" {% if duplicar_dados and duplicar_dados.vendedor == v.nome %}selected{% endif %}>{{ v.nome }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -172,6 +174,15 @@
 
         // Define a data de hoje no input automaticamente
         document.getElementById('data_venda').value = new Date().toISOString().substring(0, 10);
+
+        const dadosDuplicar = {{ duplicar_dados | tojson | safe if duplicar_dados else 'null' }};
+        if (dadosDuplicar) {
+            carrinho = dadosDuplicar.itens || [];
+            atualizarTabela();
+            if (dadosDuplicar.tipo_venda === 'Consignado') {
+                document.getElementById('aviso_consignado').style.display = 'block';
+            }
+        }
 
         function adicionarAoCarrinho() {
             const produto = document.getElementById('prod_nome').value;
