@@ -245,7 +245,6 @@ def dashboard():
         total_contatos_pendentes = len([c for c in todos_clientes if c.precisa_contato])
         total_consignacoes_pendentes = Venda.query.filter_by(tipo='Consignado', status='Pendente').count()
         total_prospeccoes = len([p for p in Prospeccao.query.all() if p.ativa])
-        prospeccoes_acao = prospeccoes_com_acao_vencida()
 
         valor_total_vendido = db.session.query(func.sum(Venda.valor_total)).filter(Venda.status == 'Confirmada').scalar() or 0
 
@@ -267,7 +266,6 @@ def dashboard():
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes, total_consignacoes_pendentes = 0, 0, 0, 0
         total_prospeccoes = 0
-        prospeccoes_acao = []
         valor_total_vendido = 0
         valor_total_vendido_fmt = formatar_moeda(0)
         vendido_por_produto = []
@@ -278,7 +276,6 @@ def dashboard():
                            total_contatos_pendentes=total_contatos_pendentes,
                            total_consignacoes_pendentes=total_consignacoes_pendentes,
                            total_prospeccoes=total_prospeccoes,
-                           prospeccoes_acao=prospeccoes_acao,
                            valor_total_vendido=valor_total_vendido,
                            valor_total_vendido_fmt=valor_total_vendido_fmt,
                            vendido_por_produto=vendido_por_produto,
@@ -592,6 +589,22 @@ def prospeccoes_com_acao_vencida():
                 if p.ativa and p.proxima_acao_dt and p.proxima_acao_dt <= agora]
     vencidas.sort(key=lambda p: p.proxima_acao_dt)
     return vencidas
+
+@app.route('/prospeccoes/verificar_acoes')
+def verificar_acoes_json():
+    if not usuario_esta_logado():
+        return jsonify({'acoes': []}), 401
+
+    acoes = []
+    for p in prospeccoes_com_acao_vencida():
+        acoes.append({
+            'id': p.id,
+            'nome': p.nome,
+            'descricao': p.proxima_acao_descricao or 'Sem descrição',
+            'data': p.proxima_acao_dt.strftime('%d/%m/%Y'),
+            'hora': p.proxima_acao_hora or '',
+        })
+    return jsonify({'acoes': acoes})
 
 @app.route('/prospeccoes', methods=['GET', 'POST'])
 def prospeccoes():

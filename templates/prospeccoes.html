@@ -107,21 +107,6 @@
             {% endif %}
         {% endwith %}
 
-        {% if vencidas %}
-        {% set vencidas_visiveis = prospeccoes | selectattr('id', 'in', vencidas) | list %}
-        {% if vencidas_visiveis %}
-        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-left: 6px solid #f59e0b; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;">
-            <div style="font-weight: 700; color: #92400e; margin-bottom: 10px;">⏰ {{ vencidas_visiveis|length }} ação(ões) de prospecção vencida(s)</div>
-            {% for p in vencidas_visiveis %}
-                <a href="/prospeccoes/{{ p.id }}" style="display: block; text-decoration: none; color: #78350f; padding: 6px 0;">
-                    <strong>{{ p.nome }}</strong> — {{ p.proxima_acao_descricao or 'sem descrição' }}
-                    <span style="font-weight: 700; margin-left: 8px;">({{ p.proxima_acao_dt.strftime('%d/%m/%Y') }} {{ p.proxima_acao_hora or '' }})</span>
-                </a>
-            {% endfor %}
-        </div>
-        {% endif %}
-        {% endif %}
-
         <div class="data-section">
             <h3 class="section-title"><i class="fa-solid fa-user-plus" style="color: #3b82f6;"></i> Nova Prospecção</h3>
             <form action="/prospeccoes" method="POST">
@@ -233,5 +218,6 @@
     }
     </script>
 
+    <script src="/static/notificacoes.js"></script>
 </body>
 </html>
