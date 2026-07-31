@@ -84,6 +84,8 @@ class Venda(db.Model):
     status = db.Column(db.String(20), default='Confirmada')  # 'Confirmada' ou 'Pendente'
     data_confirmacao = db.Column(db.DateTime)  # quando uma consignação foi confirmada como vendida
     vendedor = db.Column(db.String(100))  # vendedor responsável pela venda
+    paga = db.Column(db.Boolean, default=False)  # boleto pago
+    data_pagamento = db.Column(db.DateTime)  # data em que o boleto foi pago
 
     cliente = db.relationship('Cliente', backref=db.backref('vendas', lazy=True))
 

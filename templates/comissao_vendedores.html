@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório: Comissão de Vendedores - BenePet CRM</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='imprimir.css') }}">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; background-color: #f4f6f9; color: #333; min-height: 100vh; }
+
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; left: 0; top: 0; height: 100vh; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; }
+        .menu-link:hover { background-color: #334155; color: white; }
+        .menu-link.active { background-color: #3b82f6; color: white; }
+
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
+        .header-title { font-size: 26px; color: #0f172a; font-weight: 700; margin-bottom: 10px; }
+        .voltar-btn { color: #3498db; text-decoration: none; font-weight: bold; display: inline-block; margin-bottom: 20px; }
+        .voltar-btn:hover { text-decoration: underline; }
+
+        .filtros { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .filtros .form-group { display: flex; flex-direction: column; }
+        .filtros label { margin-bottom: 5px; color: #34495e; font-weight: 500; font-size: 13px; }
+        .filtros select { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; min-width: 160px; }
+        .filtros .btn-filtrar { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .filtros .btn-filtrar:hover { background: #1d4ed8; }
+
+        .data-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .custom-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .custom-table th { padding: 14px 16px; background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0; }
+        .custom-table td { padding: 14px 16px; color: #334155; font-size: 15px; border-bottom: 1px solid #f1f5f9; }
+        .badge { background: #e8f4fd; color: #2980b9; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+        .badge-pago { background: #d4edda; color: #155724; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+
+        .mobile-topbar { display: none; }
+        .overlay-menu { display: none; }
+
+        @media (max-width: 768px) {
+            body { display: block; }
+            .sidebar { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+            .sidebar.aberta { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 20px; padding-top: 76px; }
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 14px;
+                position: fixed; top: 0; left: 0; right: 0; height: 56px;
+                background: #1e293b; color: white; padding: 0 16px; z-index: 999;
+            }
+            .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+            .mobile-topbar span { font-size: 17px; font-weight: bold; }
+            .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+            .custom-table { display: block; overflow-x: auto; white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-topbar">
+        <button onclick="alternarMenu()">☰</button>
+        <span>🐾 BenePet CRM</span>
+    </div>
+    <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span>🐾 BenePet CRM</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="/dashboard" class="menu-link">📊 Dashboard</a>
+            <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
+            <a href="/clientes" class="menu-link">👥 Clientes</a>
+            {% if session['usuario'] == 'admin' %}
+            <a href="/vendedores" class="menu-link">👤 Vendedores</a>
+            {% endif %}
+            <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
+            <a href="/relatorios" class="menu-link active">📄 Relatórios</a>
+            <a href="/logout" class="menu-link" style="margin-top: auto; color: #ef4444;">🚪 Sair</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        {% include 'cabecalho_impressao.html' %}
+        <a href="/relatorios" class="voltar-btn">← Voltar para Relatórios</a>
+        <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+        <h2 class="header-title">Comissão de Vendedores - {{ meses_nomes[mes - 1] }} de {{ ano }}</h2>
+
+        <form class="filtros" method="GET" action="/relatorios/comissao">
+            <div class="form-group">
+                <label for="mes">Mês</label>
+                <select id="mes" name="mes">
+                    {% for numero in range(1, 13) %}
+                    <option value="{{ numero }}" {% if numero == mes %}selected{% endif %}>{{ meses_nomes[numero - 1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ano">Ano</label>
+                <select id="ano" name="ano">
+                    {% for ano_opcao in range(hoje.year + 1, hoje.year - 6, -1) %}
+                    <option value="{{ ano_opcao }}" {% if ano_opcao == ano %}selected{% endif %}>{{ ano_opcao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="vendedor">Vendedor</label>
+                <select id="vendedor" name="vendedor">
+                    <option value="">Todos os vendedores</option>
+                    {% for v in vendedores %}
+                    <option value="{{ v.nome }}" {% if vendedor_filtro == v.nome %}selected{% endif %}>{{ v.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn-filtrar"><i class="fa-solid fa-magnifying-glass"></i> Filtrar</button>
+        </form>
+
+        {% set total_geral = namespace(valor=0.0, comissao=0.0, qtd=0) %}
+        <div class="data-section">
+            <h3 style="color: #0f172a; margin-bottom: 15px;">Resumo por Vendedor</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Vendedor</th>
+                        <th>Boletos Pagos</th>
+                        <th>Total Vendido</th>
+                        <th>Comissão (%)</th>
+                        <th>Comissão a Pagar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for nome_vendedor, dados in resumo.items() %}
+                    {% set total_geral.valor = total_geral.valor + dados.total %}
+                    {% set total_geral.comissao = total_geral.comissao + dados.comissao %}
+                    {% set total_geral.qtd = total_geral.qtd + dados.qtd %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;">{{ nome_vendedor }}</td>
+                        <td><span class="badge-pago">{{ dados.qtd }}</span></td>
+                        <td>R$ {{ dados.total_fmt }}</td>
+                        <td>{{ "%.2f"|format(dados.pct|default(0)|float)|replace('.', ',') }}%</td>
+                        <td style="font-weight: 700; color: #155724;">R$ {{ dados.comissao_fmt }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum boleto pago neste mês.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if resumo %}
+                <tfoot>
+                    <tr style="background: #f8fafc; font-weight: 700;">
+                        <td>Total Geral</td>
+                        <td><span class="badge-pago">{{ total_geral.qtd }}</span></td>
+                        <td>R$ {{ "%.2f"|format(total_geral.valor) }}</td>
+                        <td>-</td>
+                        <td>R$ {{ "%.2f"|format(total_geral.comissao) }}</td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+
+        <div class="data-section">
+            <h3 style="color: #0f172a; margin-bottom: 15px;">Boletos Pagos no Mês</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Data Pagamento</th>
+                        <th>Venda</th>
+                        <th>Cliente</th>
+                        <th>Vendedor</th>
+                        <th>Valor</th>
+                        <th>Comissão</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for venda in vendas_pagas %}
+                    <tr>
+                        <td>{{ venda.data_pagamento.strftime('%d/%m/%Y') }}</td>
+                        <td><a href="/venda/detalhar/{{ venda.id }}" style="color: #2563eb;">#{{ venda.id }}</a></td>
+                        <td>{{ venda.cliente.nome_exibicao }}</td>
+                        <td>{{ venda.vendedor or '-' }}</td>
+                        <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
+                        <td>R$ {{ "%.2f"|format(venda.comissao_valor) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum boleto pago neste mês.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+    function alternarMenu() {
+        document.getElementById('sidebar').classList.toggle('aberta');
+        document.getElementById('overlayMenu').classList.toggle('ativo');
+    }
+    </script>
+
+    <script src="/static/notificacoes.js"></script>
+</body>
+</html>

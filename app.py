@@ -122,6 +122,12 @@ def garantir_colunas_novas():
         if 'vendedor' not in colunas_venda:
             conn.execute(text('ALTER TABLE venda ADD COLUMN vendedor VARCHAR(100)'))
             conn.commit()
+        if 'paga' not in colunas_venda:
+            conn.execute(text('ALTER TABLE venda ADD COLUMN paga BOOLEAN DEFAULT FALSE'))
+            conn.commit()
+        if 'data_pagamento' not in colunas_venda:
+            conn.execute(text('ALTER TABLE venda ADD COLUMN data_pagamento TIMESTAMP'))
+            conn.commit()
 
     colunas_cliente = [c['name'] for c in inspector.get_columns('cliente')]
     with db.engine.connect() as conn:
@@ -752,7 +758,8 @@ def detalhar_venda(id):
         return "Venda não encontrada", 404
 
     itens = venda.itens
-    return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True)
+    return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True,
+                           hoje=datetime.utcnow())
 
 @app.route('/vendas/<int:id>/editar', methods=['GET', 'POST'])
 def editar_venda(id):
@@ -826,6 +833,73 @@ def excluir_venda(id):
     db.session.commit()
     flash(f'Venda #{id} excluída com sucesso!', 'sucesso')
     return redirect(url_for('relatorio_vendas'))
+
+@app.route('/vendas/<int:id>/marcar_paga', methods=['POST'])
+def marcar_venda_paga(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    venda = Venda.query.get_or_404(id)
+
+    if request.form.get('desfazer'):
+        venda.paga = False
+        venda.data_pagamento = None
+        flash(f'Pagamento da venda #{id} revertido.', 'sucesso')
+    else:
+        data_pagamento_str = request.form.get('data_pagamento')
+        if data_pagamento_str:
+            venda.data_pagamento = datetime.strptime(data_pagamento_str, '%Y-%m-%d')
+        else:
+            venda.data_pagamento = datetime.utcnow()
+        venda.paga = True
+        flash(f'Venda #{id} marcada como paga!', 'sucesso')
+    db.session.commit()
+
+    destino = request.referrer or url_for('relatorio_vendas')
+    if destino and 'login' not in destino and url_for('login') not in destino:
+        return redirect(destino)
+    return redirect(url_for('relatorio_vendas'))
+
+@app.route('/relatorios/comissao')
+def relatorio_comissao():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    hoje = datetime.utcnow()
+    mes = request.args.get('mes', hoje.month, type=int)
+    ano = request.args.get('ano', hoje.year, type=int)
+    vendedor_filtro = request.args.get('vendedor', '')
+
+    vendas_pagas = [v for v in Venda.query.filter_by(paga=True).all()
+                    if v.data_pagamento and v.data_pagamento.month == mes and v.data_pagamento.year == ano]
+
+    if vendedor_filtro:
+        vendas_pagas = [v for v in vendas_pagas if (v.vendedor or '') == vendedor_filtro]
+
+    resumo = {}
+    for venda in vendas_pagas:
+        nome_vendedor = venda.vendedor or 'Sem vendedor'
+        vend = Vendedor.query.filter_by(nome=venda.vendedor).first() if venda.vendedor else None
+        pct = vend.comissao_pct if vend else 0
+        venda.comissao_valor = round(venda.valor_total * pct / 100, 2) if pct else 0.0
+        if nome_vendedor not in resumo:
+            resumo[nome_vendedor] = {'qtd': 0, 'total': 0.0, 'pct': pct}
+        resumo[nome_vendedor]['qtd'] += 1
+        resumo[nome_vendedor]['total'] += venda.valor_total
+        resumo[nome_vendedor]['comissao'] = resumo[nome_vendedor].get('comissao', 0.0) + venda.comissao_valor
+
+    for dados in resumo.values():
+        dados['total_fmt'] = formatar_moeda(dados['total'])
+        dados['comissao_fmt'] = formatar_moeda(dados['comissao'])
+
+    vendas_pagas.sort(key=lambda v: v.data_pagamento or v.data, reverse=True)
+    vendedores = Vendedor.query.order_by(Vendedor.nome).all()
+    meses_nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    return render_template('comissao_vendedores.html',
+                           mes=mes, ano=ano, vendedor_filtro=vendedor_filtro,
+                           resumo=resumo, vendas_pagas=vendas_pagas, vendedores=vendedores,
+                           hoje=hoje, meses_nomes=meses_nomes)
 
 TIPOS_HISTORICO = ['WhatsApp', 'Telefone', 'E-mail', 'Amostra', 'Visita', 'Negociação', 'Outro']
 
