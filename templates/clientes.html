@@ -26,6 +26,9 @@
         table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
         th { background-color: #34495e; color: white; font-weight: 600; }
+        th.ordena-rapido { cursor: pointer; user-select: none; transition: background 0.2s; }
+        th.ordena-rapido:hover { background-color: #2a3a4e; }
+        .seta-ordem { font-size: 11px; margin-left: 6px; }
         tr:hover { background-color: #f9f9f9; }
         .alert { padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: 500; text-align: center; }
         .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -171,7 +174,8 @@
         </div>
 
         <h3>Clientes Cadastrados</h3>
-        <table>
+        <div class="tabela-scroll">
+        <table id="tabela-clientes">
             <thead>
                 <tr>
                     <th>Cliente</th>
@@ -214,6 +218,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
     </div>
 
     <script src="/static/cidades.js" charset="utf-8"></script>
@@ -225,6 +230,72 @@
     function alternarMenu() {
         document.getElementById('sidebar').classList.toggle('aberta');
         document.getElementById('overlayMenu').classList.toggle('ativo');
+    }
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var tabela = document.getElementById('tabela-clientes');
+        if (!tabela) return;
+
+        var cabecalhos = tabela.querySelectorAll('thead th');
+
+        cabecalhos.forEach(function (th, indice) {
+            if (th.textContent.trim() === 'Ação') return;
+            th.classList.add('ordena-rapido');
+            th.addEventListener('click', function () { ordenarTabela(tabela, indice); });
+        });
+    });
+
+    function ordenarTabela(tabela, indice) {
+        var cabecalhos = tabela.querySelectorAll('thead th');
+        var corpo = tabela.querySelector('tbody');
+        var linhas = Array.prototype.slice.call(corpo.querySelectorAll('tr'));
+        var colunaAtual = tabela.getAttribute('data-coluna');
+        var ascendente = colunaAtual !== String(indice) || tabela.getAttribute('data-ordem') !== 'asc';
+        tabela.setAttribute('data-coluna', indice);
+        tabela.setAttribute('data-ordem', ascendente ? 'asc' : 'desc');
+
+        cabecalhos.forEach(function (th) {
+            var seta = th.querySelector('.seta-ordem');
+            if (seta) seta.remove();
+        });
+        var seta = document.createElement('span');
+        seta.className = 'seta-ordem';
+        seta.textContent = ascendente ? '\u25B2' : '\u25BC';
+        cabecalhos[indice].appendChild(seta);
+
+        linhas.sort(function (a, b) {
+            var celsA = a.querySelectorAll('td');
+            var celsB = b.querySelectorAll('td');
+            if (!celsA[indice] || !celsB[indice]) return 0;
+            var va = celsA[indice].textContent.trim();
+            var vb = celsB[indice].textContent.trim();
+            var r = compararValores(va, vb);
+            return ascendente ? r : -r;
+        });
+
+        linhas.forEach(function (linha) { corpo.appendChild(linha); });
+    }
+
+    function compararValores(a, b) {
+        var dataA = extrairData(a), dataB = extrairData(b);
+        if (dataA && dataB) return dataA - dataB;
+        var numA = extrairNumero(a), numB = extrairNumero(b);
+        if (numA !== null && numB !== null) return numA - numB;
+        return a.localeCompare(b, 'pt-BR', { numeric: true });
+    }
+
+    function extrairData(texto) {
+        var m = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? new Date(m[3], m[2] - 1, m[1]) : null;
+    }
+
+    function extrairNumero(texto) {
+        var limpo = texto.replace(/[R$#\s.]/g, '').replace(',', '.');
+        if (limpo === '' || limpo === '-') return null;
+        var n = parseFloat(limpo);
+        return isNaN(n) ? null : n;
     }
     </script>
 
