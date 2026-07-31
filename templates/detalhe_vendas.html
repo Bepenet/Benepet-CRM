@@ -80,34 +80,27 @@
             font-weight: bold;
         }
         .btn-ver {
-            background: #dbeafe;
             color: #1d4ed8;
-            padding: 4px 10px;
-            border-radius: 4px;
             text-decoration: none;
-            font-size: 12px;
-            font-weight: bold;
-            transition: background 0.2s;
-            display: inline-block;
+            font-size: 13px;
+            font-weight: 500;
         }
         .btn-ver:hover {
-            background: #bfdbfe;
+            text-decoration: underline;
         }
         .btn-excluir {
-            background: #fde8e8;
-            color: #b91c1c;
-            padding: 4px 10px;
+            background: none;
             border: none;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
+            color: #b91c1c;
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
-            margin-left: 6px;
-            transition: background 0.2s;
+            padding: 0;
         }
         .btn-excluir:hover {
-            background: #f5c6cb;
+            text-decoration: underline;
         }
+        .separador-acoes { margin: 0 6px; color: #aaa; }
         .alert { padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: 500; text-align: center; }
         .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .alert.erro { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -200,10 +193,7 @@
                         </td>
                         <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
                         <td>
-                            <a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar Venda</a>
-                            <form action="/vendas/{{ venda.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir a venda #{{ venda.id }}? Essa ação não pode ser desfeita.');">
-                                <button type="submit" class="btn-excluir">Excluir</button>
-                            </form>
+                            <a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar</a><span class="separador-acoes">/</span><form action="/vendas/{{ venda.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir a venda #{{ venda.id }}? Essa ação não pode ser desfeita.');"><button type="submit" class="btn-excluir">Excluir</button></form>
                         </td>
                     </tr>
                     {% else %}
