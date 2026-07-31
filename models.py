@@ -16,6 +16,7 @@ class Cliente(db.Model):
     cpf_cnpj = db.Column(db.String(20))
     endereco = db.Column(db.String(255))
     telefone = db.Column(db.String(20))  # Whats/Tel
+    email = db.Column(db.String(120))  # E-mail
     contato = db.Column(db.String(100))  # Pessoa de contato
     vendedor = db.Column(db.String(100))  # Vendedor responsável pelo atendimento
     data_cadastro = db.Column(db.DateTime, nullable=False)

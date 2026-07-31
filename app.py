@@ -64,6 +64,8 @@ def montar_link_whatsapp_nf(venda):
     linhas.append(f"CNPJ/CPF: {cliente.cpf_cnpj or 'não informado'}")
     if cliente.endereco:
         linhas.append(f"Endereço: {cliente.endereco}")
+    if cliente.email:
+        linhas.append(f"E-mail: {cliente.email}")
     linhas.append(f"Data: {venda.data_efetiva.strftime('%d/%m/%Y')}")
     linhas.append(f"Prazo de Pagamento: {venda.prazo_pagamento or 'não informado'}")
     linhas.append("")
@@ -127,6 +129,9 @@ def garantir_colunas_novas():
             conn.commit()
         if 'nome_fantasia' not in colunas_cliente:
             conn.execute(text('ALTER TABLE cliente ADD COLUMN nome_fantasia VARCHAR(100)'))
+            conn.commit()
+        if 'email' not in colunas_cliente:
+            conn.execute(text('ALTER TABLE cliente ADD COLUMN email VARCHAR(120)'))
             conn.commit()
 
     colunas_usuario = [c['name'] for c in inspector.get_columns('usuario')]
@@ -455,6 +460,7 @@ def clientes():
         cpf_cnpj = request.form.get('cpf_cnpj')
         endereco = request.form.get('endereco')
         telefone = request.form.get('telefone')
+        email = request.form.get('email')
         contato = request.form.get('contato')
         vendedor = request.form.get('vendedor')
         dias_aviso = int(request.form.get('dias_aviso', 30))
@@ -471,6 +477,7 @@ def clientes():
             cpf_cnpj=cpf_cnpj,
             endereco=endereco,
             telefone=telefone,
+            email=email,
             contato=contato,
             vendedor=vendedor,
             data_cadastro=data_cadastro,
@@ -499,6 +506,7 @@ def detalhe_cliente(id):
         cliente.cpf_cnpj = request.form.get('cpf_cnpj')
         cliente.endereco = request.form.get('endereco')
         cliente.telefone = request.form.get('telefone')
+        cliente.email = request.form.get('email')
         cliente.contato = request.form.get('contato')
         cliente.vendedor = request.form.get('vendedor')
         dias_aviso = int(request.form.get('dias_aviso', 30))

@@ -114,6 +114,10 @@
                         <input type="text" id="telefone" name="telefone" value="{{ cliente.telefone or '' }}">
                     </div>
                     <div class="form-group">
+                        <label for="email">E-mail</label>
+                        <input type="email" id="email" name="email" value="{{ cliente.email or '' }}" placeholder="exemplo@empresa.com.br">
+                    </div>
+                    <div class="form-group">
                         <label for="contato">Pessoa de Contato</label>
                         <input type="text" id="contato" name="contato" value="{{ cliente.contato or '' }}">
                     </div>
