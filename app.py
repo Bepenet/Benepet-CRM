@@ -323,6 +323,32 @@ def relatorio_vendas_por_vendedor():
     resultado = sorted(totais.items(), key=lambda item: item[1]['valor'], reverse=True)
     return render_template('relatorio_vendas_vendedor.html', vendedores=resultado)
 
+@app.route('/relatorios/vendas-por-cliente')
+def relatorio_vendas_por_cliente():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    clientes = Cliente.query.order_by(Cliente.nome).all()
+    cliente_selecionado = None
+    vendas = []
+    total_vendas = 0
+    valor_total = 0
+
+    cliente_id = request.args.get('cliente_id', type=int)
+    if cliente_id:
+        cliente_selecionado = Cliente.query.get(cliente_id)
+        if cliente_selecionado:
+            vendas = sorted(cliente_selecionado.vendas, key=lambda v: v.data, reverse=True)
+            total_vendas = len(vendas)
+            valor_total = sum(v.valor_total for v in vendas)
+
+    return render_template('relatorio_vendas_cliente.html',
+                           clientes=clientes,
+                           cliente=cliente_selecionado,
+                           vendas=vendas,
+                           total_vendas=total_vendas,
+                           valor_total_fmt=formatar_moeda(valor_total))
+
 @app.route('/relatorios/vendas-por-mes')
 def relatorio_vendas_por_mes():
     if not usuario_esta_logado():

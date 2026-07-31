@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório: Vendas por Cliente - BenePet CRM</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; background-color: #f4f6f9; color: #333; min-height: 100vh; }
+
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; height: 100vh; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; }
+        .menu-link:hover { background-color: #334155; color: white; }
+        .menu-link.active { background-color: #3b82f6; color: white; }
+
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
+        .header-title { font-size: 26px; color: #0f172a; font-weight: 700; margin-bottom: 10px; }
+        .voltar-btn { color: #3498db; text-decoration: none; font-weight: bold; display: inline-block; margin-bottom: 20px; }
+        .voltar-btn:hover { text-decoration: underline; }
+
+        .data-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .section-title { font-size: 18px; color: #1e293b; font-weight: 600; margin-bottom: 20px; }
+
+        .seletor { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+        .seletor select { flex: 1; min-width: 220px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+        .btn-submit { background-color: #3b82f6; color: white; border: none; padding: 11px 22px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .btn-submit:hover { background-color: #2563eb; }
+
+        .resumo { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+        .resumo-item { background: #f8fafc; border-radius: 8px; padding: 14px 20px; }
+        .resumo-item span { display: block; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; }
+        .resumo-item strong { font-size: 22px; color: #1e293b; }
+
+        .custom-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .custom-table th { padding: 14px 16px; background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0; }
+        .custom-table td { padding: 14px 16px; color: #334155; font-size: 15px; border-bottom: 1px solid #f1f5f9; }
+        .custom-table tr:hover td { background-color: #f8fafc; }
+        .badge-confirmada { background: #d4edda; color: #155724; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
+        .badge-pendente { background: #fef3c7; color: #92400e; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
+        .btn-ver { background: #007bff; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block; }
+        .btn-ver:hover { background: #0056b3; }
+
+        .mobile-topbar { display: none; }
+        .overlay-menu { display: none; }
+
+        @media (max-width: 768px) {
+            body { display: block; }
+            .sidebar { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+            .sidebar.aberta { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 20px; padding-top: 76px; }
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 14px;
+                position: fixed; top: 0; left: 0; right: 0; height: 56px;
+                background: #1e293b; color: white; padding: 0 16px; z-index: 999;
+            }
+            .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+            .mobile-topbar span { font-size: 17px; font-weight: bold; }
+            .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+            .custom-table { display: block; overflow-x: auto; white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-topbar">
+        <button onclick="alternarMenu()">☰</button>
+        <span>🐾 BenePet CRM</span>
+    </div>
+    <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span>🐾 BenePet CRM</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="/dashboard" class="menu-link">📊 Dashboard</a>
+            <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
+            <a href="/clientes" class="menu-link">👥 Clientes</a>
+            <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
+            <a href="/relatorios" class="menu-link active">📄 Relatórios</a>
+            <a href="/logout" class="menu-link" style="margin-top: auto; color: #ef4444;">🚪 Sair</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <a href="/relatorios" class="voltar-btn">← Voltar para Relatórios</a>
+        <h2 class="header-title">Vendas por Cliente</h2>
+
+        <div class="data-section">
+            <h3 class="section-title"><i class="fa-solid fa-user-tie" style="color: #3b82f6;"></i> Selecionar Cliente</h3>
+            <form method="GET" action="/relatorios/vendas-por-cliente" class="seletor">
+                <select name="cliente_id" required>
+                    <option value="">— Selecione o cliente —</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.id }}" {% if cliente and c.id == cliente.id %}selected{% endif %}>{{ c.nome_exibicao }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn-submit"><i class="fa-solid fa-magnifying-glass"></i> Ver Vendas</button>
+            </form>
+        </div>
+
+        {% if cliente %}
+        <div class="data-section">
+            <h3 class="section-title">🛒 Vendas de {{ cliente.nome_exibicao }}</h3>
+
+            <div class="resumo">
+                <div class="resumo-item">
+                    <span>Total de Vendas</span>
+                    <strong>{{ total_vendas }}</strong>
+                </div>
+                <div class="resumo-item">
+                    <span>Valor Total</span>
+                    <strong>R$ {{ valor_total_fmt }}</strong>
+                </div>
+            </div>
+
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data</th>
+                        <th>Prazo de Pagamento</th>
+                        <th>Tipo</th>
+                        <th>Status</th>
+                        <th>Valor Total</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vendas %}
+                    <tr>
+                        <td>#{{ v.id }}</td>
+                        <td>{{ v.data.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ v.prazo_pagamento or '-' }}</td>
+                        <td>{{ v.tipo }}</td>
+                        <td>
+                            {% if v.status == 'Confirmada' %}
+                                <span class="badge-confirmada">Confirmada</span>
+                            {% else %}
+                                <span class="badge-pendente">Consignado (Pendente)</span>
+                            {% endif %}
+                        </td>
+                        <td>R$ {{ "%.2f"|format(v.valor_total) }}</td>
+                        <td><a href="/venda/detalhar/{{ v.id }}" class="btn-ver">Ver Itens</a></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #94a3b8; padding: 30px;">Esse cliente ainda não tem vendas registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </main>
+
+    <script>
+    function alternarMenu() {
+        document.getElementById('sidebar').classList.toggle('aberta');
+        document.getElementById('overlayMenu').classList.toggle('ativo');
+    }
+    </script>
+
+    <script src="/static/notificacoes.js"></script>
+</body>
+</html>
