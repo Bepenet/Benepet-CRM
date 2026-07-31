@@ -98,6 +98,7 @@ class Prospeccao(db.Model):
     status = db.Column(db.String(30), default='Em andamento')
     data_cadastro = db.Column(db.DateTime, nullable=False)
     proxima_acao_data = db.Column(db.DateTime)  # lembrete de próxima ação
+    proxima_acao_hora = db.Column(db.String(5))  # lembrete de próxima ação (HH:MM)
     proxima_acao_descricao = db.Column(db.String(255))
     cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'))
     cliente = db.relationship('Cliente', backref=db.backref('prospeccoes', lazy=True))
@@ -107,6 +108,20 @@ class Prospeccao(db.Model):
     @property
     def ativa(self):
         return self.status in self.STATUS_ATIVOS
+
+    @property
+    def proxima_acao_dt(self):
+        """Data e hora completas da próxima ação, ou None se não houver."""
+        if not self.proxima_acao_data:
+            return None
+        dt = self.proxima_acao_data
+        if self.proxima_acao_hora:
+            try:
+                h, m = self.proxima_acao_hora.split(':')
+                dt = dt.replace(hour=int(h), minute=int(m))
+            except ValueError:
+                pass
+        return dt
 
 class HistoricoProspeccao(db.Model):
     id = db.Column(db.Integer, primary_key=True)

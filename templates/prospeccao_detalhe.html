@@ -101,6 +101,13 @@
         <a href="/prospeccoes" class="voltar-btn">← Voltar para Prospecção</a>
         <h2 class="header-title">🎯 {{ p.nome }} <span class="status-badge st-{{ p.status|lower|replace(' ', '-') }}">{{ p.status }}</span></h2>
 
+        {% if acao_vencida %}
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-left: 6px solid #f59e0b; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;">
+            <div style="font-weight: 700; color: #92400e; margin-bottom: 6px;">⏰ Ação vencida</div>
+            <div style="color: #78350f;">{{ p.proxima_acao_descricao or 'Sem descrição' }} — marcada para {{ p.proxima_acao_dt.strftime('%d/%m/%Y') }} às {{ p.proxima_acao_hora or '00:00' }}.</div>
+        </div>
+        {% endif %}
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -139,7 +146,10 @@
                     </div>
                     <div class="form-group">
                         <label for="proxima_acao_data">Próxima ação em</label>
-                        <input type="date" id="proxima_acao_data" name="proxima_acao_data" value="{{ p.proxima_acao_data.strftime('%Y-%m-%d') if p.proxima_acao_data else hoje }}">
+                        <div style="display: flex; gap: 8px;">
+                            <input type="date" id="proxima_acao_data" name="proxima_acao_data" value="{{ p.proxima_acao_data.strftime('%Y-%m-%d') if p.proxima_acao_data else hoje }}" style="flex: 1;">
+                            <input type="time" id="proxima_acao_hora" name="proxima_acao_hora" value="{{ p.proxima_acao_hora or '' }}" style="flex: 1;">
+                        </div>
                     </div>
                 </div>
                 <div class="form-grid">

@@ -128,6 +128,12 @@ def garantir_colunas_novas():
             conn.execute(text('ALTER TABLE usuario ADD COLUMN precisa_trocar_senha BOOLEAN DEFAULT TRUE'))
             conn.commit()
 
+    colunas_prospeccao = [c['name'] for c in inspector.get_columns('prospeccao')]
+    with db.engine.connect() as conn:
+        if 'proxima_acao_hora' not in colunas_prospeccao:
+            conn.execute(text('ALTER TABLE prospeccao ADD COLUMN proxima_acao_hora VARCHAR(5)'))
+            conn.commit()
+
 @app.before_request
 def inicializar_banco_seguro():
     global _tabelas_verificadas
@@ -239,6 +245,7 @@ def dashboard():
         total_contatos_pendentes = len([c for c in todos_clientes if c.precisa_contato])
         total_consignacoes_pendentes = Venda.query.filter_by(tipo='Consignado', status='Pendente').count()
         total_prospeccoes = len([p for p in Prospeccao.query.all() if p.ativa])
+        prospeccoes_acao = prospeccoes_com_acao_vencida()
 
         valor_total_vendido = db.session.query(func.sum(Venda.valor_total)).filter(Venda.status == 'Confirmada').scalar() or 0
 
@@ -260,6 +267,7 @@ def dashboard():
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes, total_consignacoes_pendentes = 0, 0, 0, 0
         total_prospeccoes = 0
+        prospeccoes_acao = []
         valor_total_vendido = 0
         valor_total_vendido_fmt = formatar_moeda(0)
         vendido_por_produto = []
@@ -270,6 +278,7 @@ def dashboard():
                            total_contatos_pendentes=total_contatos_pendentes,
                            total_consignacoes_pendentes=total_consignacoes_pendentes,
                            total_prospeccoes=total_prospeccoes,
+                           prospeccoes_acao=prospeccoes_acao,
                            valor_total_vendido=valor_total_vendido,
                            valor_total_vendido_fmt=valor_total_vendido_fmt,
                            vendido_por_produto=vendido_por_produto,
@@ -576,6 +585,14 @@ def detalhar_venda(id):
 
 TIPOS_HISTORICO = ['WhatsApp', 'Telefone', 'E-mail', 'Amostra', 'Visita', 'Negociação', 'Outro']
 
+def prospeccoes_com_acao_vencida():
+    """Prospecções ativas cuja próxima ação já chegou, da mais urgente para a menos."""
+    agora = datetime.utcnow()
+    vencidas = [p for p in Prospeccao.query.all()
+                if p.ativa and p.proxima_acao_dt and p.proxima_acao_dt <= agora]
+    vencidas.sort(key=lambda p: p.proxima_acao_dt)
+    return vencidas
+
 @app.route('/prospeccoes', methods=['GET', 'POST'])
 def prospeccoes():
     if not usuario_esta_logado():
@@ -590,6 +607,7 @@ def prospeccoes():
         status = request.form.get('status', 'Em andamento')
         proxima_data_str = request.form.get('proxima_acao_data')
         proxima_descricao = request.form.get('proxima_acao_descricao')
+        proxima_hora = request.form.get('proxima_acao_hora')
 
         proxima_data = None
         if proxima_data_str:
@@ -604,6 +622,7 @@ def prospeccoes():
             status=status,
             data_cadastro=datetime.utcnow(),
             proxima_acao_data=proxima_data,
+            proxima_acao_hora=proxima_hora or None,
             proxima_acao_descricao=proxima_descricao,
         )
         db.session.add(nova)
@@ -623,10 +642,12 @@ def prospeccoes():
         lista = todas
 
     hoje_formatado = datetime.now().strftime('%Y-%m-%d')
+    vencidas = {p.id: True for p in prospeccoes_com_acao_vencida()}
     return render_template('prospeccoes.html',
                            prospeccoes=lista,
                            todas=todas,
                            filtro=filtro,
+                           vencidas=vencidas,
                            statuses=['Em andamento', 'Amostra enviada', 'Negociação', 'Convertido', 'Perdido'],
                            hoje=hoje_formatado)
 
@@ -646,19 +667,22 @@ def detalhe_prospeccao(id):
         prospeccao.status = request.form.get('status')
         proxima_data_str = request.form.get('proxima_acao_data')
         prospeccao.proxima_acao_data = datetime.strptime(proxima_data_str, '%Y-%m-%d') if proxima_data_str else None
+        prospeccao.proxima_acao_hora = request.form.get('proxima_acao_hora') or None
         prospeccao.proxima_acao_descricao = request.form.get('proxima_acao_descricao')
         db.session.commit()
         flash('Dados da prospecção atualizados!', 'sucesso')
         return redirect(url_for('detalhe_prospeccao', id=prospeccao.id))
 
     historico = sorted(prospeccao.historicos, key=lambda h: h.data, reverse=True)
+    acao_vencida = bool(prospeccao.ativa and prospeccao.proxima_acao_dt
+                        and prospeccao.proxima_acao_dt <= datetime.utcnow())
     return render_template('prospeccao_detalhe.html',
                            p=prospeccao,
                            historico=historico,
+                           acao_vencida=acao_vencida,
                            statuses=['Em andamento', 'Amostra enviada', 'Negociação', 'Convertido', 'Perdido'],
                            tipos_historico=TIPOS_HISTORICO,
                            hoje=datetime.now().strftime('%Y-%m-%d'))
-
 @app.route('/prospeccoes/<int:id>/historico', methods=['POST'])
 def adicionar_historico(id):
     if not usuario_esta_logado():
