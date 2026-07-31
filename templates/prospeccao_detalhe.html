@@ -100,6 +100,7 @@
     </aside>
 
     <main class="main-content">
+        {% include 'cabecalho_impressao.html' %}
         <a href="/prospeccoes" class="voltar-btn">← Voltar para Prospecção</a>
         <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
         <h2 class="header-title">🎯 {{ p.nome }} <span class="status-badge st-{{ p.status|lower|replace(' ', '-') }}">{{ p.status }}</span></h2>

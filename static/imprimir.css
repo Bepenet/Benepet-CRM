@@ -1,3 +1,5 @@
+.cabecalho-impressao { display: none; }
+
 .btn-imprimir {
     float: right;
     background: #2563eb;
@@ -18,6 +20,21 @@
     .sidebar, .mobile-topbar, .overlay-menu, .voltar-btn, .btn-imprimir, .no-print { display: none !important; }
     form, .seletor, .botoes, .btn-submit, .btn-verde, .btn-vermelho, .filtros { display: none !important; }
     .main-content { margin-left: 0 !important; padding: 10px !important; }
+
+    .cabecalho-impressao {
+        display: flex !important;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 15px;
+    }
+    .cabecalho-impressao img {
+        max-height: 80px;
+        max-width: 300px;
+        object-fit: contain;
+    }
+
     .container-relatorio { max-width: 100% !important; margin: 0 !important; padding: 10px !important; box-shadow: none !important; background: white !important; }
     .data-section { box-shadow: none !important; padding: 15px !important; margin-bottom: 15px !important; }
     a { color: inherit !important; text-decoration: none !important; }
