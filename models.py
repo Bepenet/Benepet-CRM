@@ -87,3 +87,32 @@ class ItemVenda(db.Model):
     valor_subtotal = db.Column(db.Float, nullable=False)
 
     venda = db.relationship('Venda', backref=db.backref('itens', lazy=True))
+
+class Prospeccao(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    telefone = db.Column(db.String(20))
+    contato = db.Column(db.String(100))  # Pessoa de contato
+    vendedor = db.Column(db.String(100))
+    observacoes = db.Column(db.Text)
+    status = db.Column(db.String(30), default='Em andamento')
+    data_cadastro = db.Column(db.DateTime, nullable=False)
+    proxima_acao_data = db.Column(db.DateTime)  # lembrete de próxima ação
+    proxima_acao_descricao = db.Column(db.String(255))
+    cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'))
+    cliente = db.relationship('Cliente', backref=db.backref('prospeccoes', lazy=True))
+
+    STATUS_ATIVOS = ['Em andamento', 'Amostra enviada', 'Negociação']
+
+    @property
+    def ativa(self):
+        return self.status in self.STATUS_ATIVOS
+
+class HistoricoProspeccao(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    prospeccao_id = db.Column(db.Integer, db.ForeignKey('prospeccao.id'), nullable=False)
+    data = db.Column(db.DateTime, nullable=False)
+    tipo = db.Column(db.String(50), default='Outro')
+    descricao = db.Column(db.Text, nullable=False)
+
+    prospeccao = db.relationship('Prospeccao', backref=db.backref('historicos', lazy=True))

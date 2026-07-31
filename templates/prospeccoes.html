@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prospecção - BenePet CRM</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; background-color: #f4f6f9; color: #333; min-height: 100vh; }
+
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; height: 100vh; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; }
+        .menu-link:hover { background-color: #334155; color: white; }
+        .menu-link.active { background-color: #3b82f6; color: white; }
+
+        .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
+        .header-title { font-size: 26px; color: #0f172a; font-weight: 700; margin-bottom: 30px; }
+
+        .data-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .section-title { font-size: 18px; color: #1e293b; font-weight: 600; margin-bottom: 20px; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { margin-bottom: 5px; color: #34495e; font-weight: 500; font-size: 14px; }
+        .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: inherit; }
+        .btn-submit { background-color: #3b82f6; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-submit:hover { background-color: #2563eb; }
+
+        .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+        .filtro-link { background: white; color: #475569; padding: 8px 16px; border-radius: 20px; text-decoration: none; font-size: 13px; font-weight: 600; border: 1px solid #e2e8f0; }
+        .filtro-link.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+
+        .custom-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .custom-table th { padding: 14px 16px; background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0; }
+        .custom-table td { padding: 14px 16px; color: #334155; font-size: 15px; border-bottom: 1px solid #f1f5f9; }
+        .custom-table tr:hover td { background-color: #f8fafc; }
+
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; white-space: nowrap; }
+        .st-em-andamento { background: #e0f2fe; color: #0369a1; }
+        .st-amostra-enviada { background: #fef3c7; color: #b45309; }
+        .st-negociacao { background: #ede9fe; color: #6d28d9; }
+        .st-convertido { background: #d1fae5; color: #047857; }
+        .st-perdido { background: #fee2e2; color: #b91c1c; }
+        .st-outro { background: #f1f5f9; color: #475569; }
+
+        .btn-ver { background: #007bff; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block; }
+        .btn-ver:hover { background: #0056b3; }
+        .alerta-vazio { text-align: center; color: #94a3b8; padding: 30px; }
+
+        .alert { padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: 500; text-align: center; }
+        .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert.erro { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        .mobile-topbar { display: none; }
+        .overlay-menu { display: none; }
+
+        @media (max-width: 768px) {
+            body { display: block; }
+            .sidebar { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+            .sidebar.aberta { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 20px; padding-top: 76px; }
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 14px;
+                position: fixed; top: 0; left: 0; right: 0; height: 56px;
+                background: #1e293b; color: white; padding: 0 16px; z-index: 999;
+            }
+            .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+            .mobile-topbar span { font-size: 17px; font-weight: bold; }
+            .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+            .custom-table { display: block; overflow-x: auto; white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-topbar">
+        <button onclick="alternarMenu()">☰</button>
+        <span>🐾 BenePet CRM</span>
+    </div>
+    <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span>🐾 BenePet CRM</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="/dashboard" class="menu-link">📊 Dashboard</a>
+            <a href="/prospeccoes" class="menu-link active">🎯 Prospecção</a>
+            <a href="/clientes" class="menu-link">👥 Clientes</a>
+            <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
+            <a href="/relatorios" class="menu-link">📄 Relatórios</a>
+            <a href="/logout" class="menu-link" style="margin-top: auto; color: #ef4444;">🚪 Sair</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <h2 class="header-title">🎯 Prospecção</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="data-section">
+            <h3 class="section-title"><i class="fa-solid fa-user-plus" style="color: #3b82f6;"></i> Nova Prospecção</h3>
+            <form action="/prospeccoes" method="POST">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="nome">Nome / Razão Social *</label>
+                        <input type="text" id="nome" name="nome" required placeholder="Ex: Pet Shop Central">
+                    </div>
+                    <div class="form-group">
+                        <label for="telefone">Whats / Tel</label>
+                        <input type="text" id="telefone" name="telefone" placeholder="(00) 00000-0000">
+                    </div>
+                    <div class="form-group">
+                        <label for="contato">Pessoa de Contato</label>
+                        <input type="text" id="contato" name="contato" placeholder="Nome do contato">
+                    </div>
+                    <div class="form-group">
+                        <label for="vendedor">Vendedor</label>
+                        <input type="text" id="vendedor" name="vendedor" placeholder="Quem atende">
+                    </div>
+                    <div class="form-group">
+                        <label for="status">Etapa</label>
+                        <select id="status" name="status">
+                            <option value="Em andamento" selected>Em andamento</option>
+                            <option value="Amostra enviada">Amostra enviada</option>
+                            <option value="Negociação">Negociação</option>
+                            <option value="Convertido">Convertido</option>
+                            <option value="Perdido">Perdido</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="proxima_acao_data">Próxima ação em</label>
+                        <input type="date" id="proxima_acao_data" name="proxima_acao_data" value="{{ hoje }}">
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="proxima_acao_descricao">Descrição da próxima ação</label>
+                        <input type="text" id="proxima_acao_descricao" name="proxima_acao_descricao" placeholder="Ex: Ligar para tentar finalizar a venda">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="observacoes">Observações</label>
+                        <textarea id="observacoes" name="observacoes" rows="2" placeholder="Anotações iniciais sobre o prospect"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit"><i class="fa-solid fa-check"></i> Cadastrar Prospecção</button>
+            </form>
+        </div>
+
+        <div class="filtros">
+            <a href="/prospeccoes?status=Ativas" class="filtro-link {% if filtro == 'Ativas' %}active{% endif %}">Ativas ({{ todas|selectattr('ativa')|list|length }})</a>
+            <a href="/prospeccoes?status=Convertido" class="filtro-link {% if filtro == 'Convertido' %}active{% endif %}">Convertidos</a>
+            <a href="/prospeccoes?status=Perdido" class="filtro-link {% if filtro == 'Perdido' %}active{% endif %}">Perdidos</a>
+            <a href="/prospeccoes?status=Todas" class="filtro-link {% if filtro == 'Todas' %}active{% endif %}">Todas ({{ todas|length }})</a>
+        </div>
+
+        <h3 class="section-title">Lista de Prospecções</h3>
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Contato</th>
+                    <th>Whats/Tel</th>
+                    <th>Vendedor</th>
+                    <th>Etapa</th>
+                    <th>Próxima Ação</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in prospeccoes %}
+                <tr style="cursor: pointer;" onclick="window.location='/prospeccoes/{{ p.id }}'">
+                    <td><strong>{{ p.nome }}</strong></td>
+                    <td>{{ p.contato or '-' }}</td>
+                    <td>{{ p.telefone or '-' }}</td>
+                    <td>{{ p.vendedor or '-' }}</td>
+                    <td><span class="status-badge st-{{ p.status|lower|replace(' ', '-') }}">{{ p.status }}</span></td>
+                    <td>
+                        {% if p.proxima_acao_data %}
+                            <strong>{{ p.proxima_acao_data.strftime('%d/%m/%Y') }}</strong>
+                            {% if p.proxima_acao_descricao %}
+                                <br><span style="font-size: 12px; color: #64748b;">{{ p.proxima_acao_descricao }}</span>
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td><a href="/prospeccoes/{{ p.id }}" class="btn-ver">Ver / Editar</a></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="alerta-vazio">Nenhuma prospecção encontrada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+
+    <script>
+    function alternarMenu() {
+        document.getElementById('sidebar').classList.toggle('aberta');
+        document.getElementById('overlayMenu').classList.toggle('ativo');
+    }
+    </script>
+
+</body>
+</html>

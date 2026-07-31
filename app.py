@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text, func
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, Usuario, Cliente, Venda, ItemVenda
+from models import db, Usuario, Cliente, Venda, ItemVenda, Prospeccao, HistoricoProspeccao
 
 app = Flask(__name__)
 
@@ -238,6 +238,7 @@ def dashboard():
         todos_clientes = Cliente.query.all()
         total_contatos_pendentes = len([c for c in todos_clientes if c.precisa_contato])
         total_consignacoes_pendentes = Venda.query.filter_by(tipo='Consignado', status='Pendente').count()
+        total_prospeccoes = len([p for p in Prospeccao.query.all() if p.ativa])
 
         valor_total_vendido = db.session.query(func.sum(Venda.valor_total)).filter(Venda.status == 'Confirmada').scalar() or 0
 
@@ -258,6 +259,7 @@ def dashboard():
         valor_total_vendido_fmt = formatar_moeda(valor_total_vendido)
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes, total_consignacoes_pendentes = 0, 0, 0, 0
+        total_prospeccoes = 0
         valor_total_vendido = 0
         valor_total_vendido_fmt = formatar_moeda(0)
         vendido_por_produto = []
@@ -267,6 +269,7 @@ def dashboard():
                            vendas_total=vendas_total,
                            total_contatos_pendentes=total_contatos_pendentes,
                            total_consignacoes_pendentes=total_consignacoes_pendentes,
+                           total_prospeccoes=total_prospeccoes,
                            valor_total_vendido=valor_total_vendido,
                            valor_total_vendido_fmt=valor_total_vendido_fmt,
                            vendido_por_produto=vendido_por_produto,
@@ -570,6 +573,171 @@ def detalhar_venda(id):
 
     itens = venda.itens
     return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True)
+
+TIPOS_HISTORICO = ['WhatsApp', 'Telefone', 'E-mail', 'Amostra', 'Visita', 'Negociação', 'Outro']
+
+@app.route('/prospeccoes', methods=['GET', 'POST'])
+def prospeccoes():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        telefone = request.form.get('telefone')
+        contato = request.form.get('contato')
+        vendedor = request.form.get('vendedor')
+        observacoes = request.form.get('observacoes')
+        status = request.form.get('status', 'Em andamento')
+        proxima_data_str = request.form.get('proxima_acao_data')
+        proxima_descricao = request.form.get('proxima_acao_descricao')
+
+        proxima_data = None
+        if proxima_data_str:
+            proxima_data = datetime.strptime(proxima_data_str, '%Y-%m-%d')
+
+        nova = Prospeccao(
+            nome=nome,
+            telefone=telefone,
+            contato=contato,
+            vendedor=vendedor,
+            observacoes=observacoes,
+            status=status,
+            data_cadastro=datetime.utcnow(),
+            proxima_acao_data=proxima_data,
+            proxima_acao_descricao=proxima_descricao,
+        )
+        db.session.add(nova)
+        db.session.commit()
+        flash(f'Prospecção "{nome}" cadastrada com sucesso!', 'sucesso')
+        return redirect(url_for('prospeccoes'))
+
+    filtro = request.args.get('status', 'Ativas')
+    todas = Prospeccao.query.order_by(Prospeccao.data_cadastro.desc()).all()
+    if filtro == 'Ativas':
+        lista = [p for p in todas if p.ativa]
+    elif filtro == 'Convertido':
+        lista = [p for p in todas if p.status == 'Convertido']
+    elif filtro == 'Perdido':
+        lista = [p for p in todas if p.status == 'Perdido']
+    else:
+        lista = todas
+
+    hoje_formatado = datetime.now().strftime('%Y-%m-%d')
+    return render_template('prospeccoes.html',
+                           prospeccoes=lista,
+                           todas=todas,
+                           filtro=filtro,
+                           statuses=['Em andamento', 'Amostra enviada', 'Negociação', 'Convertido', 'Perdido'],
+                           hoje=hoje_formatado)
+
+@app.route('/prospeccoes/<int:id>', methods=['GET', 'POST'])
+def detalhe_prospeccao(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    prospeccao = Prospeccao.query.get_or_404(id)
+
+    if request.method == 'POST':
+        prospeccao.nome = request.form.get('nome')
+        prospeccao.telefone = request.form.get('telefone')
+        prospeccao.contato = request.form.get('contato')
+        prospeccao.vendedor = request.form.get('vendedor')
+        prospeccao.observacoes = request.form.get('observacoes')
+        prospeccao.status = request.form.get('status')
+        proxima_data_str = request.form.get('proxima_acao_data')
+        prospeccao.proxima_acao_data = datetime.strptime(proxima_data_str, '%Y-%m-%d') if proxima_data_str else None
+        prospeccao.proxima_acao_descricao = request.form.get('proxima_acao_descricao')
+        db.session.commit()
+        flash('Dados da prospecção atualizados!', 'sucesso')
+        return redirect(url_for('detalhe_prospeccao', id=prospeccao.id))
+
+    historico = sorted(prospeccao.historicos, key=lambda h: h.data, reverse=True)
+    return render_template('prospeccao_detalhe.html',
+                           p=prospeccao,
+                           historico=historico,
+                           statuses=['Em andamento', 'Amostra enviada', 'Negociação', 'Convertido', 'Perdido'],
+                           tipos_historico=TIPOS_HISTORICO,
+                           hoje=datetime.now().strftime('%Y-%m-%d'))
+
+@app.route('/prospeccoes/<int:id>/historico', methods=['POST'])
+def adicionar_historico(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    prospeccao = Prospeccao.query.get_or_404(id)
+    data_str = request.form.get('data')
+    tipo = request.form.get('tipo', 'Outro')
+    descricao = request.form.get('descricao')
+
+    if not descricao:
+        flash('Descreva a ação realizada.', 'erro')
+        return redirect(url_for('detalhe_prospeccao', id=prospeccao.id))
+
+    data = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
+
+    novo = HistoricoProspeccao(
+        prospeccao_id=prospeccao.id,
+        data=data,
+        tipo=tipo,
+        descricao=descricao,
+    )
+    db.session.add(novo)
+    db.session.commit()
+    flash('Ação registrada no histórico!', 'sucesso')
+    return redirect(url_for('detalhe_prospeccao', id=prospeccao.id))
+
+@app.route('/historico/<int:id>/excluir', methods=['POST'])
+def excluir_historico(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    historico = HistoricoProspeccao.query.get_or_404(id)
+    prospeccao_id = historico.prospeccao_id
+    db.session.delete(historico)
+    db.session.commit()
+    flash('Registro do histórico excluído.', 'sucesso')
+    return redirect(url_for('detalhe_prospeccao', id=prospeccao_id))
+
+@app.route('/prospeccoes/<int:id>/converter', methods=['POST'])
+def converter_prospeccao(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    prospeccao = Prospeccao.query.get_or_404(id)
+    if prospeccao.cliente_id:
+        flash('Essa prospecção já foi convertida em cliente.', 'erro')
+        return redirect(url_for('detalhe_prospeccao', id=prospeccao.id))
+
+    cliente = Cliente(
+        nome=prospeccao.nome,
+        telefone=prospeccao.telefone,
+        contato=prospeccao.contato,
+        vendedor=prospeccao.vendedor,
+        data_cadastro=datetime.utcnow(),
+        dias_aviso=30,
+        periodo_retorno=30,
+    )
+    db.session.add(cliente)
+    db.session.flush()
+    prospeccao.cliente_id = cliente.id
+    prospeccao.status = 'Convertido'
+    db.session.commit()
+    flash(f'Prospecção convertida! Cliente "{cliente.nome}" criado.', 'sucesso')
+    return redirect(url_for('detalhe_cliente', id=cliente.id))
+
+@app.route('/prospeccoes/<int:id>/excluir', methods=['POST'])
+def excluir_prospeccao(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    prospeccao = Prospeccao.query.get_or_404(id)
+    nome = prospeccao.nome
+    for h in prospeccao.historicos:
+        db.session.delete(h)
+    db.session.delete(prospeccao)
+    db.session.commit()
+    flash(f'Prospecção "{nome}" excluída.', 'sucesso')
+    return redirect(url_for('prospeccoes'))
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))
