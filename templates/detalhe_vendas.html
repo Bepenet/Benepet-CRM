@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relatório de Vendas - CRM Benepet</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='imprimir.css') }}">
     <style>
         .container-relatorio {
             padding: 30px;
@@ -120,6 +121,7 @@
 <body>
     <div class="container-relatorio">
         <a href="/dashboard" class="voltar-btn">← Voltar para o Dashboard</a>
+        <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% for category, message in messages %}

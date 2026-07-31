@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relatório: Próximo Contato - BenePet CRM</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='imprimir.css') }}">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { display: flex; background-color: #f4f6f9; color: #333; min-height: 100vh; }
@@ -72,6 +73,7 @@
 
     <main class="main-content">
         <a href="/relatorios" class="voltar-btn">← Voltar para Relatórios</a>
+        <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
         <h2 class="header-title">Próximo Contato</h2>
 
         <div class="data-section">

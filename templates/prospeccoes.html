@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prospecção - BenePet CRM</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='imprimir.css') }}">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { display: flex; background-color: #f4f6f9; color: #333; min-height: 100vh; }
@@ -97,6 +98,7 @@
     </aside>
 
     <main class="main-content">
+        <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
         <h2 class="header-title">🎯 Prospecção</h2>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -167,7 +169,7 @@
         </div>
 
         <h3 class="section-title">Lista de Prospecções</h3>
-        <table class="custom-table">
+        <table class="custom-table" id="tabela-prospeccoes">
             <thead>
                 <tr>
                     <th>Nome</th>
