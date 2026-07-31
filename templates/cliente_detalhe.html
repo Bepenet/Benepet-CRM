@@ -146,16 +146,16 @@
                         <input type="text" id="endereco" name="endereco" value="{{ cliente.endereco or '' }}">
                     </div>
                     <div class="form-group">
+                        <label for="cidade">Cidade</label>
+                        <select id="cidade" name="cidade">
+                            <option value="">— Selecione a cidade —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="uf">Estado (UF)</label>
                         <select id="uf" name="uf" onchange="aoTrocarUf(this, document.getElementById('cidade'), '')">
                             <option value="">— Selecione —</option>
                             <option value="AC" {% if cliente.uf == 'AC' %}selected{% endif %}>AC</option><option value="AL" {% if cliente.uf == 'AL' %}selected{% endif %}>AL</option><option value="AP" {% if cliente.uf == 'AP' %}selected{% endif %}>AP</option><option value="AM" {% if cliente.uf == 'AM' %}selected{% endif %}>AM</option><option value="BA" {% if cliente.uf == 'BA' %}selected{% endif %}>BA</option><option value="CE" {% if cliente.uf == 'CE' %}selected{% endif %}>CE</option><option value="DF" {% if cliente.uf == 'DF' %}selected{% endif %}>DF</option><option value="ES" {% if cliente.uf == 'ES' %}selected{% endif %}>ES</option><option value="GO" {% if cliente.uf == 'GO' %}selected{% endif %}>GO</option><option value="MA" {% if cliente.uf == 'MA' %}selected{% endif %}>MA</option><option value="MT" {% if cliente.uf == 'MT' %}selected{% endif %}>MT</option><option value="MS" {% if cliente.uf == 'MS' %}selected{% endif %}>MS</option><option value="MG" {% if cliente.uf == 'MG' %}selected{% endif %}>MG</option><option value="PA" {% if cliente.uf == 'PA' %}selected{% endif %}>PA</option><option value="PB" {% if cliente.uf == 'PB' %}selected{% endif %}>PB</option><option value="PR" {% if cliente.uf == 'PR' %}selected{% endif %}>PR</option><option value="PE" {% if cliente.uf == 'PE' %}selected{% endif %}>PE</option><option value="PI" {% if cliente.uf == 'PI' %}selected{% endif %}>PI</option><option value="RJ" {% if cliente.uf == 'RJ' %}selected{% endif %}>RJ</option><option value="RN" {% if cliente.uf == 'RN' %}selected{% endif %}>RN</option><option value="RS" {% if cliente.uf == 'RS' %}selected{% endif %}>RS</option><option value="RO" {% if cliente.uf == 'RO' %}selected{% endif %}>RO</option><option value="RR" {% if cliente.uf == 'RR' %}selected{% endif %}>RR</option><option value="SC" {% if cliente.uf == 'SC' %}selected{% endif %}>SC</option><option value="SP" {% if cliente.uf == 'SP' %}selected{% endif %}>SP</option><option value="SE" {% if cliente.uf == 'SE' %}selected{% endif %}>SE</option><option value="TO" {% if cliente.uf == 'TO' %}selected{% endif %}>TO</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="cidade">Cidade</label>
-                        <select id="cidade" name="cidade">
-                            <option value="">— Selecione a cidade —</option>
                         </select>
                     </div>
                     <div class="form-group">
