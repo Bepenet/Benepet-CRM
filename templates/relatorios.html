@@ -63,6 +63,7 @@
             <a href="/clientes" class="menu-link">👥 Clientes</a>
             {% if session['usuario'] == 'admin' %}
             <a href="/vendedores" class="menu-link">👤 Vendedores</a>
+            <a href="/backups" class="menu-link">💾 Backups</a>
             {% endif %}
             <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
             <a href="/relatorios" class="menu-link active">📄 Relatórios</a>
@@ -109,6 +110,14 @@
                 <span class="relatorio-titulo">Vendas por Cliente</span>
                 <span class="relatorio-desc">Selecione um cliente e veja somente as vendas dele.</span>
             </a>
+
+            {% if session['usuario'] == 'admin' %}
+            <a href="/backups" class="relatorio-card">
+                <span class="relatorio-icone"><i class="fa-solid fa-database"></i></span>
+                <span class="relatorio-titulo">Backups</span>
+                <span class="relatorio-desc">Crie e baixe backups do banco de dados.</span>
+            </a>
+            {% endif %}
         </div>
     </main>
 

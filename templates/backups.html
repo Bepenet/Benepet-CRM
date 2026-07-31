@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backups - BenePet CRM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f6f9; color: #333; display: flex; justify-content: flex-start; padding-left: 260px; min-height: 100vh; }
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; left: 0; top: 0; height: 100vh; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; transition: all 0.3s ease; }
+        .menu-link:hover { background-color: #334155; color: white; }
+        .menu-link.active { background-color: #3b82f6; color: white; }
+
+        .mobile-topbar { display: none; }
+        .overlay-menu { display: none; }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; box-sizing: border-box; flex-grow: 1; }
+        .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 18px; font-weight: 500; }
+        .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert.erro { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info-box { background: #eef2ff; border: 1px solid #c7d2fe; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
+        .btn-backup { background: #28a745; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 20px; }
+        .btn-backup:hover { background: #1e7e34; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        th { background: #28a745; color: white; padding: 12px 16px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 14px; }
+        tr:hover td { background: #f9fbf9; }
+        .sem-backup { text-align: center; color: #777; padding: 30px !important; font-style: italic; }
+        .btn-baixar { color: #1d4ed8; text-decoration: none; font-size: 13px; font-weight: 500; }
+        .btn-baixar:hover { text-decoration: underline; }
+        .btn-excluir { background: none; border: none; color: #b91c1c; font-size: 13px; font-weight: 500; cursor: pointer; padding: 0; }
+        .btn-excluir:hover { text-decoration: underline; }
+        .separador { margin: 0 6px; color: #aaa; }
+
+        @media (max-width: 768px) {
+            body { display: block; padding-left: 0; }
+            .sidebar { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+            .sidebar.aberta { transform: translateX(0); }
+            .container { margin-left: 0 !important; padding-top: 76px; }
+            .mobile-topbar { display: flex; align-items: center; gap: 14px; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: #1e293b; color: white; padding: 0 16px; z-index: 999; }
+            .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+            .mobile-topbar span { font-size: 17px; font-weight: bold; }
+            .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+            table { min-width: 520px; }
+            .tabela-scroll { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-topbar">
+        <button onclick="alternarMenu()">☰</button>
+        <span>🐾 BenePet CRM</span>
+    </div>
+    <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span>🐾 BenePet CRM</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="/dashboard" class="menu-link">📊 Dashboard</a>
+            <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
+            <a href="/clientes" class="menu-link">👥 Clientes</a>
+            <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
+            <a href="/relatorios" class="menu-link">📄 Relatórios</a>
+            <a href="/backups" class="menu-link active">💾 Backups</a>
+            <a href="/logout" class="menu-link" style="margin-top: auto; color: #ef4444;">🚪 Sair</a>
+        </nav>
+    </aside>
+
+    <div class="container">
+        <h2>💾 Backups do Banco de Dados</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <div class="info-box">
+            🔄 <strong>Backup automático diário</strong> às 03:00 (horário de Brasília). Os últimos
+            <strong>30 backups</strong> são mantidos — os mais antigos são apagados automaticamente.
+            <br><br>
+            ⚠️ No Render, os arquivos ficam no disco do serviço e são apagados a cada novo deploy.
+            Por isso, <strong>baixe os backups regularmente</strong> para guardar em outro lugar
+            (computador ou nuvem).
+        </div>
+
+        <form action="/backups" method="POST" onsubmit="return confirm('Criar um novo backup agora?');">
+            <button type="submit" class="btn-backup">📥 Criar Backup Agora</button>
+        </form>
+
+        <div class="tabela-scroll">
+        <table>
+            <thead>
+                <tr>
+                    <th>Arquivo</th>
+                    <th>Data</th>
+                    <th>Tamanho</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in backups %}
+                <tr>
+                    <td><strong>{{ b.nome }}</strong></td>
+                    <td>{{ b.data.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ '{:.2f}'.format(b.tamanho / 1024) }} KB</td>
+                    <td>
+                        <a href="/backups/{{ b.nome }}/baixar" class="btn-baixar">Baixar</a>
+                        <span class="separador">/</span>
+                        <form action="/backups/{{ b.nome }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir o backup {{ b.nome }}?');">
+                            <button type="submit" class="btn-excluir">Excluir</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="sem-backup">Nenhum backup gerado até o momento.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        <br>
+        <a href="/dashboard">← Voltar ao Dashboard</a>
+    </div>
+
+    <script>
+        function alternarMenu() {
+            document.getElementById('sidebar').classList.toggle('aberta');
+            document.getElementById('overlayMenu').classList.toggle('ativo');
+        }
+    </script>
+    <script src="/static/notificacoes.js"></script>
+</body>
+</html>

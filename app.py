@@ -1,11 +1,13 @@
 import os
 import unicodedata
 from urllib.parse import quote
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text, func
 from werkzeug.security import generate_password_hash, check_password_hash
+from apscheduler.schedulers.background import BackgroundScheduler
 from models import db, Usuario, Cliente, Venda, ItemVenda, Prospeccao, HistoricoProspeccao, Vendedor
+import backup as backup_mod
 
 app = Flask(__name__)
 
@@ -1124,6 +1126,70 @@ def excluir_prospeccao(id):
     db.session.commit()
     flash(f'Prospecção "{nome}" excluída.', 'sucesso')
     return redirect(url_for('prospeccoes'))
+
+def agendar_backup_automatico():
+    try:
+        arquivo = backup_mod.criar_backup()
+        print(f"Backup automático gerado: {arquivo}")
+    except Exception as e:
+        print(f"Erro ao gerar backup automático: {e}")
+
+
+def iniciar_agendador_backups():
+    """Inicia o backup automático diário (03:00, horário de Brasília).
+
+    No Flask em modo debug, o reloader roda o módulo duas vezes; o WERKZEUG_RUN_MAIN
+    garante que o agendador só inicie no processo real. No gunicorn (Render) o módulo
+    roda uma vez por worker, e o padrão é um único worker."""
+    if app.debug and os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        return
+    agendador = BackgroundScheduler(timezone='America/Sao_Paulo')
+    agendador.add_job(agendar_backup_automatico, 'cron', hour=3, minute=0)
+    agendador.start()
+
+
+iniciar_agendador_backups()
+
+@app.route('/backups', methods=['GET', 'POST'])
+def backups():
+    if not usuario_esta_logado() or session['usuario'] != 'admin':
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        try:
+            arquivo = backup_mod.criar_backup()
+            flash(f'Backup criado: {arquivo.name}', 'sucesso')
+        except Exception as e:
+            flash(f'Erro ao criar backup: {e}', 'erro')
+        return redirect(url_for('backups'))
+
+    lista = backup_mod.listar_backups()
+    return render_template('backups.html', backups=lista, usuario_logado=session['usuario'])
+
+
+@app.route('/backups/<path:nome>/baixar')
+def baixar_backup(nome):
+    if not usuario_esta_logado() or session['usuario'] != 'admin':
+        return redirect(url_for('login'))
+
+    caminho = (backup_mod.BACKUP_DIR / nome).resolve()
+    if not caminho.is_file() or caminho.parent != backup_mod.BACKUP_DIR.resolve():
+        flash('Backup não encontrado.', 'erro')
+        return redirect(url_for('backups'))
+    return send_file(caminho, as_attachment=True)
+
+
+@app.route('/backups/<path:nome>/excluir', methods=['POST'])
+def excluir_backup(nome):
+    if not usuario_esta_logado() or session['usuario'] != 'admin':
+        return redirect(url_for('login'))
+
+    caminho = (backup_mod.BACKUP_DIR / nome).resolve()
+    if caminho.is_file() and caminho.parent == backup_mod.BACKUP_DIR.resolve():
+        caminho.unlink()
+        flash(f'Backup "{nome}" excluído.', 'sucesso')
+    return redirect(url_for('backups'))
+
 
 if __name__ == "__main__":
     porta = int(os.environ.get("PORT", 5000))

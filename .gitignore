@@ -3,4 +3,5 @@ __pycache__/
 .venv/
 .env
 instance/
+backups/
 .python-version
