@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Venda #{{ venda.id }} - BenePet CRM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f6f9; color: #333; display: flex; justify-content: flex-start; padding-left: 260px; min-height: 100vh; }
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; left: 0; top: 0; height: 100vh; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; transition: all 0.3s ease; }
+        .menu-link:hover { background-color: #334155; color: white; }
+        .menu-link.active { background-color: #3b82f6; color: white; }
+
+        .mobile-topbar { display: none; }
+        .overlay-menu { display: none; }
+
+        .alert { padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: 500; text-align: center; }
+        .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert.erro { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        @media (max-width: 768px) {
+            body { display: block; padding-left: 0; }
+            .sidebar { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+            .sidebar.aberta { transform: translateX(0); }
+            .container { margin-left: 0 !important; padding-top: 76px; }
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 14px;
+                position: fixed; top: 0; left: 0; right: 0; height: 56px;
+                background: #1e293b; color: white; padding: 0 16px; z-index: 999;
+            }
+            .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+            .mobile-topbar span { font-size: 17px; font-weight: bold; }
+            .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+        }
+        @media (max-width: 700px) {
+            .linha-topo, .linha-item { flex-direction: column; align-items: stretch !important; }
+            .tabela-scroll { overflow-x: auto; }
+            table { min-width: 500px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-topbar">
+        <button onclick="alternarMenu()">☰</button>
+        <span>🐾 BenePet CRM</span>
+    </div>
+    <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span>🐾 BenePet CRM</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="/dashboard" class="menu-link">📊 Dashboard</a>
+            <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
+            <a href="/clientes" class="menu-link">👥 Clientes</a>
+            <a href="/vendas" class="menu-link active">🛒 Lançar Vendas</a>
+            <a href="/relatorios" class="menu-link">📄 Relatórios</a>
+            <a href="/usuarios?user=admin" id="btn-admin" class="menu-link" style="display: none;">🔐 Usuários</a>
+            <a href="/logout" class="menu-link" style="margin-top: auto; color: #ef4444;">🚪 Sair</a>
+        </nav>
+    </aside>
+
+    <div class="container" style="max-width: 900px; margin: 0 auto; padding: 20px; box-sizing: border-box; flex-grow: 1;">
+        <a href="/vendas/relatorio" style="color: #3498db; text-decoration: none; font-weight: bold; display: inline-block; margin-bottom: 15px;">← Voltar para Histórico</a>
+        <h2>✏️ Editar Venda #{{ venda.id }}</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
+
+        <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;">
+            <label style="display:block; margin-bottom:8px; font-weight:bold;">Tipo de Venda:</label>
+            <label style="margin-right: 20px; cursor: pointer;">
+                <input type="radio" name="tipo_venda" value="Normal" {% if venda.tipo != 'Consignado' %}checked{% endif %} onchange="atualizarTipoVenda()"> Venda Normal
+            </label>
+            <label style="cursor: pointer;">
+                <input type="radio" name="tipo_venda" value="Consignado" {% if venda.tipo == 'Consignado' %}checked{% endif %} onchange="atualizarTipoVenda()"> Consignado
+            </label>
+            <p id="aviso_consignado" style="display:none; margin-top:10px; color:#4338ca; font-size:13px;">
+                📦 Consignado = produto ficou com o cliente sem virar venda ainda. Confirme em "Consignações Pendentes" quando ele revender.
+            </p>
+        </div>
+
+        <div class="linha-topo" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end;">
+            <div style="flex: 1;">
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Cliente:</label>
+                <select id="cliente_id" style="width:100%; padding:8px;">
+                    {% for c in clientes %}
+                        <option value="{{ c.id }}" {% if c.id == venda.cliente_id %}selected{% endif %}>{{ c.nome_exibicao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Data da Venda:</label>
+                <input type="date" id="data_venda" value="{{ venda.data.strftime('%Y-%m-%d') }}" style="padding:7px;">
+            </div>
+            <div style="flex: 1;">
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Prazo de Pagamento:</label>
+                {% set prazos = ['A Vista (Pix)', 'A Vista (Dinheiro)', 'Prazo 7 dias', 'Prazo 15 dias', 'Prazo 30 dias', 'Parcelado 30/60', 'Parcelado 30/45/60', 'Parcelado 15/30/45', 'Parcelado 15/30/45/60'] %}
+                <select id="prazo_pagamento" style="width:100%; padding:8px;">
+                    {% if venda.prazo_pagamento and venda.prazo_pagamento not in prazos %}
+                        <option value="{{ venda.prazo_pagamento }}" selected>{{ venda.prazo_pagamento }}</option>
+                    {% endif %}
+                    {% for p in prazos %}
+                        <option value="{{ p }}" {% if venda.prazo_pagamento == p %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Status:</label>
+                <select id="status_venda" style="padding:8px;">
+                    <option value="Confirmada" {% if venda.status == 'Confirmada' %}selected{% endif %}>Confirmada</option>
+                    <option value="Pendente" {% if venda.status != 'Confirmada' %}selected{% endif %}>Consignado (Pendente)</option>
+                </select>
+            </div>
+        </div>
+
+        <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+            <legend style="font-weight: bold; padding: 0 10px;">Adicionar Item</legend>
+            <div class="linha-item" style="display: flex; gap: 10px;">
+                <input type="text" id="prod_nome" list="lista_produtos" placeholder="Nome do Produto/Serviço" style="flex: 2; padding: 8px;">
+                <datalist id="lista_produtos">
+                    <option value="TAPETE BAG REVENDA">
+                    <option value="TAPETE USO INTERNO">
+                    <option value="AREIA SILICA">
+                    <option value="CATA CACA">
+                </datalist>
+                <input type="number" id="prod_qtd" placeholder="Qtd" value="1" style="flex: 0.5; padding: 8px;">
+                <input type="number" step="0.01" id="prod_valor" placeholder="Valor Unitário (R$)" style="flex: 1; padding: 8px;">
+                <button type="button" onclick="adicionarAoCarrinho()" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">+</button>
+            </div>
+        </fieldset>
+
+        <h3>Itens da Venda</h3>
+        <div class="tabela-scroll">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+                <tr style="background: #e9ecef; text-align: left;">
+                    <th style="padding: 10px;">Produto</th>
+                    <th style="padding: 10px;">Qtd</th>
+                    <th style="padding: 10px;">Unitário</th>
+                    <th style="padding: 10px;">Subtotal</th>
+                    <th style="padding: 10px;">Ação</th>
+                </tr>
+            </thead>
+            <tbody id="corpo_carrinho">
+                </tbody>
+        </table>
+        </div>
+
+        <div style="text-align: right; margin-bottom: 20px;">
+            <h3 style="margin: 0;">Total da Venda: <span id="total_geral" style="color: #28a745;">R$ 0,00</span></h3>
+        </div>
+
+        <button type="button" onclick="salvarAlteracoes()" style="background: #28a745; color: white; border: none; padding: 12px 25px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%;">Salvar Alterações</button>
+
+        <br><br>
+        <a href="/vendas/relatorio">← Voltar para o Histórico de Vendas</a>
+    </div>
+
+    <script>
+        if ("{{ session['usuario'] }}" === 'admin') {
+            document.getElementById('btn-admin').style.display = 'flex';
+        }
+        function alternarMenu() {
+            document.getElementById('sidebar').classList.toggle('aberta');
+            document.getElementById('overlayMenu').classList.toggle('ativo');
+        }
+        let carrinho = [
+            {% for item in venda.itens %}
+            { produto: {{ item.produto|tojson }}, quantidade: {{ item.quantidade }}, valor_unitario: {{ item.valor_unitario }}, valor_subtotal: {{ item.valor_subtotal }} },
+            {% endfor %}
+        ];
+
+        atualizarTabela();
+
+        function adicionarAoCarrinho() {
+            const produto = document.getElementById('prod_nome').value;
+            const quantidade = parseInt(document.getElementById('prod_qtd').value);
+            const valor_unitario = parseFloat(document.getElementById('prod_valor').value);
+
+            if (!produto || isNaN(quantidade) || isNaN(valor_unitario)) {
+                alert("Por favor, preencha todos os campos do produto corretamente.");
+                return;
+            }
+
+            const valor_subtotal = quantidade * valor_unitario;
+            carrinho.push({ produto, quantidade, valor_unitario, valor_subtotal });
+
+            atualizarTabela();
+
+            document.getElementById('prod_nome').value = '';
+            document.getElementById('prod_valor').value = '';
+            document.getElementById('prod_qtd').value = '1';
+        }
+
+        function removerDoCarrinho(index) {
+            carrinho.splice(index, 1);
+            atualizarTabela();
+        }
+
+        function atualizarTabela() {
+            const tbody = document.getElementById('corpo_carrinho');
+            tbody.innerHTML = '';
+            let total = 0;
+
+            carrinho.forEach((item, index) => {
+                total += item.valor_subtotal;
+                tbody.innerHTML += `
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">${item.produto}</td>
+                        <td style="padding: 10px;">${item.quantidade}</td>
+                        <td style="padding: 10px;">R$ ${item.valor_unitario.toFixed(2)}</td>
+                        <td style="padding: 10px;">R$ ${item.valor_subtotal.toFixed(2)}</td>
+                        <td style="padding: 10px;"><button style="background:#dc3545; color:white; border:none; padding:3px 8px; border-radius:3px; cursor:pointer;" onclick="removerDoCarrinho(${index})">Remover</button></td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('total_geral').innerText = `R$ ${total.toFixed(2)}`;
+        }
+
+        function atualizarTipoVenda() {
+            const consignado = document.querySelector('input[name="tipo_venda"]:checked').value === 'Consignado';
+            document.getElementById('aviso_consignado').style.display = consignado ? 'block' : 'none';
+        }
+
+        atualizarTipoVenda();
+
+        function salvarAlteracoes() {
+            if (carrinho.length === 0) {
+                alert("A venda precisa ter pelo menos um item!");
+                return;
+            }
+
+            const payload = {
+                cliente_id: document.getElementById('cliente_id').value,
+                data: document.getElementById('data_venda').value,
+                valor_total: carrinho.reduce((sum, item) => sum + item.valor_subtotal, 0),
+                itens: carrinho,
+                prazo_pagamento: document.getElementById('prazo_pagamento').value,
+                tipo_venda: document.querySelector('input[name="tipo_venda"]:checked').value,
+                status: document.getElementById('status_venda').value
+            };
+
+            fetch('/vendas/{{ venda.id }}/editar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    alert("Venda atualizada com sucesso!");
+                    window.location.href = '/vendas/relatorio';
+                } else {
+                    alert("Erro ao atualizar a venda: " + (data.erro || "tente novamente."));
+                }
+            });
+        }
+    </script>
+    <script src="/static/notificacoes.js"></script>
+</body>
+</html>

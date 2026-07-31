@@ -621,6 +621,59 @@ def detalhar_venda(id):
     itens = venda.itens
     return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True)
 
+@app.route('/vendas/<int:id>/editar', methods=['GET', 'POST'])
+def editar_venda(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    venda = Venda.query.get_or_404(id)
+
+    if request.method == 'POST':
+        dados = request.get_json()
+        cliente_id = dados.get('cliente_id')
+        data_str = dados.get('data')
+        prazo_pagamento = dados.get('prazo_pagamento')
+        tipo_venda = dados.get('tipo_venda', 'Normal')
+        status = dados.get('status', 'Confirmada')
+        itens = dados.get('itens')
+
+        if not itens:
+            return jsonify({"erro": "A venda precisa ter pelo menos um item."}), 400
+
+        data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else venda.data
+
+        venda.cliente_id = cliente_id
+        venda.data = data_venda
+        venda.prazo_pagamento = prazo_pagamento
+        venda.tipo = tipo_venda
+        venda.status = status
+        venda.valor_total = sum(float(i['valor_subtotal']) for i in itens)
+
+        if status == 'Confirmada':
+            if not venda.data_confirmacao:
+                venda.data_confirmacao = venda.data
+        else:
+            venda.data_confirmacao = None
+
+        for item in list(venda.itens):
+            db.session.delete(item)
+        db.session.flush()
+
+        for item in itens:
+            db.session.add(ItemVenda(
+                venda_id=venda.id,
+                produto=item['produto'],
+                quantidade=int(item['quantidade']),
+                valor_unitario=float(item['valor_unitario']),
+                valor_subtotal=float(item['valor_subtotal'])
+            ))
+
+        db.session.commit()
+        return jsonify({"mensagem": "Venda atualizada!"}), 200
+
+    clientes = Cliente.query.all()
+    return render_template('editar_venda.html', venda=venda, clientes=clientes)
+
 @app.route('/vendas/<int:id>/excluir', methods=['POST'])
 def excluir_venda(id):
     if not usuario_esta_logado():
