@@ -129,13 +129,26 @@
                 </div>
 
                 <div class="form-grid">
-                    <div class="form-group" style="grid-column: span 1;">
+                    <div class="form-group">
+                        <label for="cep">CEP</label>
+                        <input type="text" id="cep" name="cep" placeholder="00000-000" maxlength="9" oninput="mascaraCEP(this)" onblur="buscarCEP(this, 'endereco', 'cidade', 'uf')">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
                         <label for="endereco">Endereço</label>
                         <input type="text" id="endereco" name="endereco" placeholder="Rua, Número, Bairro">
                     </div>
                     <div class="form-group">
-                        <label for="cidade">Cidade/UF</label>
-                        <input type="text" id="cidade" name="cidade" placeholder="Ex: Jaraguá do Sul/SC">
+                        <label for="uf">Estado (UF)</label>
+                        <select id="uf" name="uf" onchange="aoTrocarUf(this, document.getElementById('cidade'), '')">
+                            <option value="">— Selecione —</option>
+                            <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option><option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option><option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cidade">Cidade</label>
+                        <select id="cidade" name="cidade">
+                            <option value="">— Selecione a cidade —</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="data_cadastro">Data Cadastro</label>
@@ -165,6 +178,7 @@
                     <th>Contato</th>
                     <th>Vendedor</th>
                     <th>Endereço</th>
+                    <th>CEP</th>
                     <th>Cidade/UF</th>
                     <th>Data Cadastro</th>
                     <th>Aviso Retorno</th>
@@ -185,20 +199,23 @@
                     <td>{{ cliente.contato or '-' }}</td>
                     <td>{{ cliente.vendedor or '-' }}</td>
                     <td>{{ cliente.endereco or '-' }}</td>
-                    <td>{{ cliente.cidade or '-' }}</td>
+                    <td>{{ cliente.cep or '-' }}</td>
+                    <td>{{ cliente.cidade or '-' }}{% if cliente.uf %} - {{ cliente.uf }}{% endif %}</td>
                     <td>{{ cliente.data_cadastro.strftime('%d/%m/%Y') }}</td>
                     <td><span style="background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 4px; font-weight: bold;">{{ cliente.dias_aviso }} dias</span></td>
                     <td><a href="/clientes/{{ cliente.id }}" style="background: #3498db; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold;">Ver / Editar</a></td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="9" style="text-align: center; color: #95a5a6;">Nenhum cliente cadastrado ainda.</td>
+                    <td colspan="11" style="text-align: center; color: #95a5a6;">Nenhum cliente cadastrado ainda.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
+    <script src="/static/cidades.js" charset="utf-8"></script>
+    <script src="/static/cep_cidades.js"></script>
     <script>
     if ("{{ session['usuario'] }}" === 'admin') {
         document.getElementById('btn-admin').style.display = 'flex';

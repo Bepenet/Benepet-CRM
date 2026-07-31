@@ -117,8 +117,21 @@
                         <input type="text" id="endereco" name="endereco" placeholder="Rua, número, bairro">
                     </div>
                     <div class="form-group">
-                        <label for="cidade">Cidade/UF</label>
-                        <input type="text" id="cidade" name="cidade" placeholder="Ex: Jaraguá do Sul/SC">
+                        <label for="cep">CEP</label>
+                        <input type="text" id="cep" name="cep" placeholder="00000-000" maxlength="9" oninput="mascaraCEP(this)" onblur="buscarCEP(this, 'endereco', 'cidade', 'uf')">
+                    </div>
+                    <div class="form-group">
+                        <label for="uf">Estado (UF)</label>
+                        <select id="uf" name="uf" onchange="aoTrocarUf(this, document.getElementById('cidade'), '')">
+                            <option value="">— Selecione —</option>
+                            <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option><option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option><option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cidade">Cidade</label>
+                        <select id="cidade" name="cidade">
+                            <option value="">— Selecione a cidade —</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="comissao_pct">Comissão (%)</label>
@@ -140,6 +153,7 @@
                     <th>Whats / Tel</th>
                     <th>E-mail</th>
                     <th>Endereço</th>
+                    <th>CEP</th>
                     <th>Cidade/UF</th>
                     <th>Comissão (%)</th>
                     <th>Ações</th>
@@ -153,10 +167,11 @@
                     <td>{{ v.telefone or '-' }}</td>
                     <td>{{ v.email or '-' }}</td>
                     <td>{{ v.endereco or '-' }}</td>
-                    <td>{{ v.cidade or '-' }}</td>
+                    <td>{{ v.cep or '-' }}</td>
+                    <td>{{ v.cidade or '-' }}{% if v.uf %} - {{ v.uf }}{% endif %}</td>
                     <td>{{ v.comissao_pct|replace('.', ',') if v.comissao_pct else '0' }}%</td>
                     <td>
-                        <a href="#" class="btn-editar" onclick="editarVendedor({{ v.id }}, {{ v.nome|tojson }}, {{ v.telefone|tojson or 'null' }}, {{ v.email|tojson or 'null' }}, {{ v.endereco|tojson or 'null' }}, {{ v.cidade|tojson or 'null' }}, {{ v.comissao_pct or 0 }})">Editar</a>
+                        <a href="#" class="btn-editar" onclick="editarVendedor({{ v.id }}, {{ v.nome|tojson }}, {{ v.telefone|tojson or 'null' }}, {{ v.email|tojson or 'null' }}, {{ v.endereco|tojson or 'null' }}, {{ v.cep|tojson or 'null' }}, {{ v.cidade|tojson or 'null' }}, {{ v.uf|tojson or 'null' }}, {{ v.comissao_pct or 0 }})">Editar</a>
                         <span class="separador">/</span>
                         <form action="/vendedores/{{ v.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir o vendedor "{{ v.nome }}"?');">
                             <button type="submit" class="btn-excluir" style="background:none; border:none; padding:0; font-size:14px; cursor:pointer;">Excluir</button>
@@ -165,7 +180,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum vendedor cadastrado ainda.</td>
+                    <td colspan="9" style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum vendedor cadastrado ainda.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -173,6 +188,8 @@
         </div>
     </div>
 
+    <script src="/static/cidades.js" charset="utf-8"></script>
+    <script src="/static/cep_cidades.js"></script>
     <script>
         if ("{{ session['usuario'] }}" === 'admin') {
             document.getElementById('btn-admin').style.display = 'flex';
@@ -181,13 +198,22 @@
             document.getElementById('sidebar').classList.toggle('aberta');
             document.getElementById('overlayMenu').classList.toggle('ativo');
         }
-        function editarVendedor(id, nome, telefone, email, endereco, cidade, comissao) {
+        function editarVendedor(id, nome, telefone, email, endereco, cep, cidade, uf, comissao) {
             document.getElementById('nome').value = nome;
             document.getElementById('telefone').value = telefone || '';
             document.getElementById('email').value = email || '';
             document.getElementById('endereco').value = endereco || '';
-            document.getElementById('cidade').value = cidade || '';
+            document.getElementById('cep').value = cep || '';
             document.getElementById('comissao_pct').value = comissao || 0;
+            var selUf = document.getElementById('uf');
+            var selCidade = document.getElementById('cidade');
+            if (uf) {
+                carregarCidades(uf, selCidade);
+                selecionarCidade(selCidade, cidade);
+            } else {
+                selCidade.innerHTML = '<option value="">— Selecione a cidade —</option>';
+            }
+            selUf.value = uf || '';
             document.getElementById('form-vendedor').action = '/vendedores/' + id + '/editar';
             document.getElementById('titulo-formulario').innerHTML = '<i class="fa-solid fa-pen-to-square" style="color: #f39c12;"></i> Editando Vendedor';
             document.getElementById('btn-submit').innerHTML = '<i class="fa-solid fa-check"></i> Salvar Alterações';
@@ -196,6 +222,7 @@
         }
         function cancelarEdicao() {
             document.getElementById('form-vendedor').reset();
+            document.getElementById('cidade').innerHTML = '<option value="">— Selecione a cidade —</option>';
             document.getElementById('form-vendedor').action = '/vendedores';
             document.getElementById('titulo-formulario').innerHTML = '<i class="fa-solid fa-user-tie" style="color: #3498db;"></i> Novo Vendedor';
             document.getElementById('btn-submit').innerHTML = '<i class="fa-solid fa-check"></i> Cadastrar Vendedor';
