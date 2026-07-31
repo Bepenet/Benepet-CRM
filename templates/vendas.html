@@ -6,8 +6,8 @@
     <title>Lançar Venda - BenePet CRM</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f6f9; color: #333; display: flex; min-height: 100vh; }
-        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; height: 100vh; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f6f9; color: #333; display: flex; justify-content: flex-start; min-height: 100vh; }
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; left: 0; top: 0; height: 100vh; }
         .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
         .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
         .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; transition: all 0.3s ease; }
