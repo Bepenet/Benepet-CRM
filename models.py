@@ -13,6 +13,8 @@ class Vendedor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), unique=True, nullable=False)
     telefone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    endereco = db.Column(db.String(255))
     comissao_pct = db.Column(db.Float, default=0)  # percentual de comissão sobre vendas
 
 class Cliente(db.Model):

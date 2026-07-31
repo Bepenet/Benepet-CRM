@@ -149,6 +149,18 @@ def garantir_colunas_novas():
             conn.execute(text('ALTER TABLE prospeccao ADD COLUMN proxima_acao_hora VARCHAR(5)'))
             conn.commit()
 
+    try:
+        colunas_vendedor = [c['name'] for c in inspector.get_columns('vendedor')]
+        with db.engine.connect() as conn:
+            if 'email' not in colunas_vendedor:
+                conn.execute(text('ALTER TABLE vendedor ADD COLUMN email VARCHAR(120)'))
+                conn.commit()
+            if 'endereco' not in colunas_vendedor:
+                conn.execute(text('ALTER TABLE vendedor ADD COLUMN endereco VARCHAR(255)'))
+                conn.commit()
+    except Exception as e:
+        print(f"Aviso ao verificar tabela vendedor: {e}")
+
 @app.before_request
 def inicializar_banco_seguro():
     global _tabelas_verificadas
@@ -460,6 +472,8 @@ def vendedores():
     if request.method == 'POST':
         nome = (request.form.get('nome') or '').strip()
         telefone = request.form.get('telefone')
+        email = request.form.get('email')
+        endereco = request.form.get('endereco')
         comissao_pct = request.form.get('comissao_pct') or 0
 
         if not nome:
@@ -467,7 +481,7 @@ def vendedores():
         elif Vendedor.query.filter_by(nome=nome).first():
             flash('Já existe um vendedor com esse nome.', 'erro')
         else:
-            db.session.add(Vendedor(nome=nome, telefone=telefone, comissao_pct=float(comissao_pct)))
+            db.session.add(Vendedor(nome=nome, telefone=telefone, email=email, endereco=endereco, comissao_pct=float(comissao_pct)))
             db.session.commit()
             flash(f'Vendedor "{nome}" cadastrado com sucesso!', 'sucesso')
         return redirect(url_for('vendedores'))
@@ -495,6 +509,8 @@ def editar_vendedor(id):
 
     vendedor.nome = nome_novo
     vendedor.telefone = request.form.get('telefone')
+    vendedor.email = request.form.get('email')
+    vendedor.endereco = request.form.get('endereco')
     vendedor.comissao_pct = float(request.form.get('comissao_pct') or 0)
     db.session.commit()
 

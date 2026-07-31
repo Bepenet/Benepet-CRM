@@ -109,6 +109,14 @@
                         <input type="text" id="telefone" name="telefone" placeholder="(00) 00000-0000">
                     </div>
                     <div class="form-group">
+                        <label for="email">E-mail</label>
+                        <input type="email" id="email" name="email" placeholder="maria@exemplo.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="endereco">Endereço</label>
+                        <input type="text" id="endereco" name="endereco" placeholder="Rua, número, bairro, cidade">
+                    </div>
+                    <div class="form-group">
                         <label for="comissao_pct">Comissão (%)</label>
                         <input type="number" step="0.01" id="comissao_pct" name="comissao_pct" value="0" placeholder="Ex: 5">
                     </div>
@@ -126,6 +134,8 @@
                     <th>ID</th>
                     <th>Nome</th>
                     <th>Whats / Tel</th>
+                    <th>E-mail</th>
+                    <th>Endereço</th>
                     <th>Comissão (%)</th>
                     <th>Ações</th>
                 </tr>
@@ -136,9 +146,11 @@
                     <td>{{ v.id }}</td>
                     <td><strong>{{ v.nome }}</strong></td>
                     <td>{{ v.telefone or '-' }}</td>
+                    <td>{{ v.email or '-' }}</td>
+                    <td>{{ v.endereco or '-' }}</td>
                     <td>{{ v.comissao_pct|replace('.', ',') if v.comissao_pct else '0' }}%</td>
                     <td>
-                        <a href="#" class="btn-editar" onclick="editarVendedor({{ v.id }}, {{ v.nome|tojson }}, {{ v.telefone|tojson or 'null' }}, {{ v.comissao_pct or 0 }})">Editar</a>
+                        <a href="#" class="btn-editar" onclick="editarVendedor({{ v.id }}, {{ v.nome|tojson }}, {{ v.telefone|tojson or 'null' }}, {{ v.email|tojson or 'null' }}, {{ v.endereco|tojson or 'null' }}, {{ v.comissao_pct or 0 }})">Editar</a>
                         <span class="separador">/</span>
                         <form action="/vendedores/{{ v.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir o vendedor "{{ v.nome }}"?');">
                             <button type="submit" class="btn-excluir" style="background:none; border:none; padding:0; font-size:14px; cursor:pointer;">Excluir</button>
@@ -147,7 +159,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum vendedor cadastrado ainda.</td>
+                    <td colspan="7" style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum vendedor cadastrado ainda.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -163,9 +175,11 @@
             document.getElementById('sidebar').classList.toggle('aberta');
             document.getElementById('overlayMenu').classList.toggle('ativo');
         }
-        function editarVendedor(id, nome, telefone, comissao) {
+        function editarVendedor(id, nome, telefone, email, endereco, comissao) {
             document.getElementById('nome').value = nome;
             document.getElementById('telefone').value = telefone || '';
+            document.getElementById('email').value = email || '';
+            document.getElementById('endereco').value = endereco || '';
             document.getElementById('comissao_pct').value = comissao || 0;
             document.getElementById('form-vendedor').action = '/vendedores/' + id + '/editar';
             document.getElementById('titulo-formulario').innerHTML = '<i class="fa-solid fa-pen-to-square" style="color: #f39c12;"></i> Editando Vendedor';
