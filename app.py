@@ -42,6 +42,13 @@ def formatar_moeda(valor):
     """Formata um número no padrão brasileiro: milhar com ponto, decimal com vírgula."""
     return '{:,.2f}'.format(valor or 0).replace(',', 'X').replace('.', ',').replace('X', '.')
 
+def agora_brasil():
+    """Data/hora atual no fuso do Brasil (UTC-3), usado nas comparações de lembrete.
+
+    O servidor pode rodar em UTC, então o 'agora' precisa ser convertido para o
+    fuso local da equipe para bater com as datas/horas informadas no sistema."""
+    return datetime.utcnow() - timedelta(hours=3)
+
 # Número que recebe o aviso de vendas confirmadas para emissão de NF (com DDI+DDD)
 WHATSAPP_NF_NUMERO = os.environ.get('WHATSAPP_NF_NUMERO', '5547988139107')
 
@@ -584,7 +591,7 @@ TIPOS_HISTORICO = ['WhatsApp', 'Telefone', 'E-mail', 'Amostra', 'Visita', 'Negoc
 
 def prospeccoes_com_acao_vencida():
     """Prospecções ativas cuja próxima ação já chegou, da mais urgente para a menos."""
-    agora = datetime.utcnow()
+    agora = agora_brasil()
     vencidas = [p for p in Prospeccao.query.all()
                 if p.ativa and p.proxima_acao_dt and p.proxima_acao_dt <= agora]
     vencidas.sort(key=lambda p: p.proxima_acao_dt)
@@ -654,7 +661,7 @@ def prospeccoes():
     else:
         lista = todas
 
-    hoje_formatado = datetime.now().strftime('%Y-%m-%d')
+    hoje_formatado = agora_brasil().strftime('%Y-%m-%d')
     vencidas = {p.id: True for p in prospeccoes_com_acao_vencida()}
     return render_template('prospeccoes.html',
                            prospeccoes=lista,
@@ -688,14 +695,14 @@ def detalhe_prospeccao(id):
 
     historico = sorted(prospeccao.historicos, key=lambda h: h.data, reverse=True)
     acao_vencida = bool(prospeccao.ativa and prospeccao.proxima_acao_dt
-                        and prospeccao.proxima_acao_dt <= datetime.utcnow())
+                        and prospeccao.proxima_acao_dt <= agora_brasil())
     return render_template('prospeccao_detalhe.html',
                            p=prospeccao,
                            historico=historico,
                            acao_vencida=acao_vencida,
                            statuses=['Em andamento', 'Amostra enviada', 'Negociação', 'Convertido', 'Perdido'],
                            tipos_historico=TIPOS_HISTORICO,
-                           hoje=datetime.now().strftime('%Y-%m-%d'))
+                           hoje=agora_brasil().strftime('%Y-%m-%d'))
 @app.route('/prospeccoes/<int:id>/historico', methods=['POST'])
 def adicionar_historico(id):
     if not usuario_esta_logado():
