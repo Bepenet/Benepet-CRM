@@ -613,6 +613,23 @@ def detalhar_venda(id):
     itens = venda.itens
     return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True)
 
+@app.route('/vendas/<int:id>/excluir', methods=['POST'])
+def excluir_venda(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    venda = Venda.query.get(id)
+    if not venda:
+        flash('Venda não encontrada.', 'erro')
+        return redirect(url_for('relatorio_vendas'))
+
+    for item in venda.itens:
+        db.session.delete(item)
+    db.session.delete(venda)
+    db.session.commit()
+    flash(f'Venda #{id} excluída com sucesso!', 'sucesso')
+    return redirect(url_for('relatorio_vendas'))
+
 TIPOS_HISTORICO = ['WhatsApp', 'Telefone', 'E-mail', 'Amostra', 'Visita', 'Negociação', 'Outro']
 
 def prospeccoes_com_acao_vencida():
