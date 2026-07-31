@@ -488,7 +488,7 @@ def reativar_contato(id):
 
 @app.route('/vendedores', methods=['GET', 'POST'])
 def vendedores():
-    if not usuario_esta_logado():
+    if not usuario_esta_logado() or session['usuario'] != 'admin':
         return redirect(url_for('login'))
 
     if request.method == 'POST':
@@ -516,7 +516,7 @@ def vendedores():
 
 @app.route('/vendedores/<int:id>/editar', methods=['POST'])
 def editar_vendedor(id):
-    if not usuario_esta_logado():
+    if not usuario_esta_logado() or session['usuario'] != 'admin':
         return redirect(url_for('login'))
 
     vendedor = Vendedor.query.get_or_404(id)
@@ -554,7 +554,7 @@ def editar_vendedor(id):
 
 @app.route('/vendedores/<int:id>/excluir', methods=['POST'])
 def excluir_vendedor(id):
-    if not usuario_esta_logado():
+    if not usuario_esta_logado() or session['usuario'] != 'admin':
         return redirect(url_for('login'))
 
     vendedor = Vendedor.query.get_or_404(id)

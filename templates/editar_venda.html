@@ -57,7 +57,9 @@
             <a href="/dashboard" class="menu-link">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
+            {% if session['usuario'] == 'admin' %}
             <a href="/vendedores" class="menu-link">👤 Vendedores</a>
+            {% endif %}
             <a href="/vendas" class="menu-link active">🛒 Lançar Vendas</a>
             <a href="/relatorios" class="menu-link">📄 Relatórios</a>
             <a href="/usuarios?user=admin" id="btn-admin" class="menu-link" style="display: none;">🔐 Usuários</a>
