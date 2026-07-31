@@ -53,6 +53,7 @@
             <a href="/dashboard" class="menu-link">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
+            <a href="/vendedores" class="menu-link">👤 Vendedores</a>
             <a href="/vendas" class="menu-link active">🛒 Lançar Vendas</a>
             <a href="/relatorios" class="menu-link">📄 Relatórios</a>
             <a href="/usuarios?user=admin" id="btn-admin" class="menu-link" style="display: none;">🔐 Usuários</a>
@@ -101,6 +102,15 @@
                     <option value="Parcelado 30/45/60">Parcelado 30/45/60</option>
                     <option value="Parcelado 15/30/45">Parcelado 15/30/45</option>
                     <option value="Parcelado 15/30/45/60">Parcelado 15/30/45/60</option>
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Vendedor:</label>
+                <select id="vendedor" style="width:100%; padding:8px;">
+                    <option value="">— Selecionar —</option>
+                    {% for v in vendedores %}
+                        <option value="{{ v.nome }}">{{ v.nome }}</option>
+                    {% endfor %}
                 </select>
             </div>
         </div>
@@ -225,7 +235,8 @@
                 valor_total: carrinho.reduce((sum, item) => sum + item.valor_subtotal, 0),
                 itens: carrinho,
                 prazo_pagamento: document.getElementById('prazo_pagamento').value,
-                tipo_venda: document.querySelector('input[name="tipo_venda"]:checked').value
+                tipo_venda: document.querySelector('input[name="tipo_venda"]:checked').value,
+                vendedor: document.getElementById('vendedor').value
             };
 
             fetch('/salvar_venda_multipla', {

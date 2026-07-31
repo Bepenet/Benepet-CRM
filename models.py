@@ -9,6 +9,12 @@ class Usuario(db.Model):
     senha = db.Column(db.String(256), nullable=False)
     precisa_trocar_senha = db.Column(db.Boolean, default=True)
 
+class Vendedor(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), unique=True, nullable=False)
+    telefone = db.Column(db.String(20))
+    comissao_pct = db.Column(db.Float, default=0)  # percentual de comissão sobre vendas
+
 class Cliente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)  # Razão Social
@@ -69,6 +75,7 @@ class Venda(db.Model):
     tipo = db.Column(db.String(20), default='Normal')  # 'Normal' ou 'Consignado'
     status = db.Column(db.String(20), default='Confirmada')  # 'Confirmada' ou 'Pendente'
     data_confirmacao = db.Column(db.DateTime)  # quando uma consignação foi confirmada como vendida
+    vendedor = db.Column(db.String(100))  # vendedor responsável pela venda
 
     cliente = db.relationship('Cliente', backref=db.backref('vendas', lazy=True))
 

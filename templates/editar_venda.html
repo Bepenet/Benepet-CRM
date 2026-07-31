@@ -57,6 +57,7 @@
             <a href="/dashboard" class="menu-link">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
+            <a href="/vendedores" class="menu-link">👤 Vendedores</a>
             <a href="/vendas" class="menu-link active">🛒 Lançar Vendas</a>
             <a href="/relatorios" class="menu-link">📄 Relatórios</a>
             <a href="/usuarios?user=admin" id="btn-admin" class="menu-link" style="display: none;">🔐 Usuários</a>
@@ -109,6 +110,18 @@
                     {% endif %}
                     {% for p in prazos %}
                         <option value="{{ p }}" {% if venda.prazo_pagamento == p %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Vendedor:</label>
+                <select id="vendedor" style="width:100%; padding:8px;">
+                    <option value="">— Sem vendedor —</option>
+                    {% if venda.vendedor and venda.vendedor not in vendedores|map(attribute='nome')|list %}
+                    <option value="{{ venda.vendedor }}" selected>{{ venda.vendedor }}</option>
+                    {% endif %}
+                    {% for v in vendedores %}
+                        <option value="{{ v.nome }}" {% if venda.vendedor == v.nome %}selected{% endif %}>{{ v.nome }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -246,7 +259,8 @@
                 itens: carrinho,
                 prazo_pagamento: document.getElementById('prazo_pagamento').value,
                 tipo_venda: document.querySelector('input[name="tipo_venda"]:checked').value,
-                status: document.getElementById('status_venda').value
+                status: document.getElementById('status_venda').value,
+                vendedor: document.getElementById('vendedor').value
             };
 
             fetch('/vendas/{{ venda.id }}/editar', {

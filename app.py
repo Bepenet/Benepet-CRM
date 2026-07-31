@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text, func
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, Usuario, Cliente, Venda, ItemVenda, Prospeccao, HistoricoProspeccao
+from models import db, Usuario, Cliente, Venda, ItemVenda, Prospeccao, HistoricoProspeccao, Vendedor
 
 app = Flask(__name__)
 
@@ -114,6 +114,9 @@ def garantir_colunas_novas():
             conn.commit()
         if 'data_confirmacao' not in colunas_venda:
             conn.execute(text('ALTER TABLE venda ADD COLUMN data_confirmacao TIMESTAMP'))
+            conn.commit()
+        if 'vendedor' not in colunas_venda:
+            conn.execute(text('ALTER TABLE venda ADD COLUMN vendedor VARCHAR(100)'))
             conn.commit()
 
     colunas_cliente = [c['name'] for c in inspector.get_columns('cliente')]
@@ -316,7 +319,7 @@ def relatorio_vendas_por_vendedor():
     vendas = Venda.query.join(Cliente).filter(Venda.status == 'Confirmada').all()
     totais = {}
     for venda in vendas:
-        vendedor = venda.cliente.vendedor or 'Sem vendedor definido'
+        vendedor = venda.vendedor or venda.cliente.vendedor or 'Sem vendedor definido'
         if vendedor not in totais:
             totais[vendedor] = {'quantidade_vendas': 0, 'valor': 0}
         totais[vendedor]['quantidade_vendas'] += 1
@@ -449,6 +452,78 @@ def reativar_contato(id):
     flash(f'Lembrete de {cliente.nome} reativado.', 'sucesso')
     return redirect(url_for('contatos_pendentes'))
 
+@app.route('/vendedores', methods=['GET', 'POST'])
+def vendedores():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        nome = (request.form.get('nome') or '').strip()
+        telefone = request.form.get('telefone')
+        comissao_pct = request.form.get('comissao_pct') or 0
+
+        if not nome:
+            flash('Informe o nome do vendedor.', 'erro')
+        elif Vendedor.query.filter_by(nome=nome).first():
+            flash('Já existe um vendedor com esse nome.', 'erro')
+        else:
+            db.session.add(Vendedor(nome=nome, telefone=telefone, comissao_pct=float(comissao_pct)))
+            db.session.commit()
+            flash(f'Vendedor "{nome}" cadastrado com sucesso!', 'sucesso')
+        return redirect(url_for('vendedores'))
+
+    lista = Vendedor.query.order_by(Vendedor.nome).all()
+    return render_template('vendedores.html', vendedores=lista)
+
+@app.route('/vendedores/<int:id>/editar', methods=['POST'])
+def editar_vendedor(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    vendedor = Vendedor.query.get_or_404(id)
+    nome_antigo = vendedor.nome
+    nome_novo = (request.form.get('nome') or '').strip()
+
+    if not nome_novo:
+        flash('Informe o nome do vendedor.', 'erro')
+        return redirect(url_for('vendedores'))
+
+    duplicado = Vendedor.query.filter(Vendedor.nome == nome_novo, Vendedor.id != id).first()
+    if duplicado:
+        flash('Já existe outro vendedor com esse nome.', 'erro')
+        return redirect(url_for('vendedores'))
+
+    vendedor.nome = nome_novo
+    vendedor.telefone = request.form.get('telefone')
+    vendedor.comissao_pct = float(request.form.get('comissao_pct') or 0)
+    db.session.commit()
+
+    if nome_antigo != nome_novo:
+        for cliente in Cliente.query.filter_by(vendedor=nome_antigo).all():
+            cliente.vendedor = nome_novo
+        for venda in Venda.query.filter_by(vendedor=nome_antigo).all():
+            venda.vendedor = nome_novo
+        db.session.commit()
+
+    flash(f'Vendedor "{nome_novo}" atualizado!', 'sucesso')
+    return redirect(url_for('vendedores'))
+
+@app.route('/vendedores/<int:id>/excluir', methods=['POST'])
+def excluir_vendedor(id):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    vendedor = Vendedor.query.get_or_404(id)
+    nome = vendedor.nome
+    db.session.delete(vendedor)
+    for cliente in Cliente.query.filter_by(vendedor=nome).all():
+        cliente.vendedor = None
+    for venda in Venda.query.filter_by(vendedor=nome).all():
+        venda.vendedor = None
+    db.session.commit()
+    flash(f'Vendedor "{nome}" excluído.', 'sucesso')
+    return redirect(url_for('vendedores'))
+
 @app.route('/clientes', methods=['GET', 'POST'])
 def clientes():
     if not usuario_esta_logado():
@@ -491,7 +566,8 @@ def clientes():
 
     todos_clientes = Cliente.query.all()
     hoje_formatado = datetime.now().strftime('%Y-%m-%d')
-    return render_template('clientes.html', clientes=todos_clientes, hoje=hoje_formatado)
+    vendedores = Vendedor.query.order_by(Vendedor.nome).all()
+    return render_template('clientes.html', clientes=todos_clientes, hoje=hoje_formatado, vendedores=vendedores)
 
 @app.route('/clientes/<int:id>', methods=['GET', 'POST'])
 def detalhe_cliente(id):
@@ -518,7 +594,8 @@ def detalhe_cliente(id):
         return redirect(url_for('detalhe_cliente', id=cliente.id))
 
     historico_vendas = sorted(cliente.vendas, key=lambda v: v.data, reverse=True)
-    return render_template('cliente_detalhe.html', cliente=cliente, vendas=historico_vendas)
+    vendedores = Vendedor.query.order_by(Vendedor.nome).all()
+    return render_template('cliente_detalhe.html', cliente=cliente, vendas=historico_vendas, vendedores=vendedores)
 
 @app.route('/vendas')
 def vendas():
@@ -526,8 +603,9 @@ def vendas():
         return redirect(url_for('login'))
 
     clientes = Cliente.query.all()
+    vendedores = Vendedor.query.order_by(Vendedor.nome).all()
     historico_vendas = Venda.query.order_by(Venda.data.desc()).all()
-    return render_template('vendas.html', clientes=clientes, vendas=historico_vendas)
+    return render_template('vendas.html', clientes=clientes, vendas=historico_vendas, vendedores=vendedores)
 
 @app.route('/usuarios', methods=['GET', 'POST'])
 def usuarios():
@@ -564,6 +642,7 @@ def salvar_venda_multipla():
     itens = dados.get('itens')
     prazo_pagamento = dados.get('prazo_pagamento')
     tipo_venda = dados.get('tipo_venda', 'Normal')
+    vendedor = dados.get('vendedor')
 
     data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
     status_venda = 'Pendente' if tipo_venda == 'Consignado' else 'Confirmada'
@@ -575,7 +654,8 @@ def salvar_venda_multipla():
             valor_total=valor_total,
             prazo_pagamento=prazo_pagamento,
             tipo=tipo_venda,
-            status=status_venda
+            status=status_venda,
+            vendedor=vendedor
         )
         db.session.add(nova_venda)
         db.session.flush()
@@ -635,6 +715,7 @@ def editar_venda(id):
         prazo_pagamento = dados.get('prazo_pagamento')
         tipo_venda = dados.get('tipo_venda', 'Normal')
         status = dados.get('status', 'Confirmada')
+        vendedor = dados.get('vendedor')
         itens = dados.get('itens')
 
         if not itens:
@@ -647,6 +728,7 @@ def editar_venda(id):
         venda.prazo_pagamento = prazo_pagamento
         venda.tipo = tipo_venda
         venda.status = status
+        venda.vendedor = vendedor
         venda.valor_total = sum(float(i['valor_subtotal']) for i in itens)
 
         if status == 'Confirmada':
@@ -672,7 +754,8 @@ def editar_venda(id):
         return jsonify({"mensagem": "Venda atualizada!"}), 200
 
     clientes = Cliente.query.all()
-    return render_template('editar_venda.html', venda=venda, clientes=clientes)
+    vendedores = Vendedor.query.order_by(Vendedor.nome).all()
+    return render_template('editar_venda.html', venda=venda, clientes=clientes, vendedores=vendedores)
 
 @app.route('/vendas/<int:id>/excluir', methods=['POST'])
 def excluir_venda(id):
