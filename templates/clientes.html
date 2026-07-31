@@ -129,9 +129,13 @@
                 </div>
 
                 <div class="form-grid">
-                    <div class="form-group" style="grid-column: span 2;">
-                        <label for="endereco">Endereço Completo</label>
-                        <input type="text" id="endereco" name="endereco" placeholder="Rua, Número, Bairro, Cidade">
+                    <div class="form-group" style="grid-column: span 1;">
+                        <label for="endereco">Endereço</label>
+                        <input type="text" id="endereco" name="endereco" placeholder="Rua, Número, Bairro">
+                    </div>
+                    <div class="form-group">
+                        <label for="cidade">Cidade/UF</label>
+                        <input type="text" id="cidade" name="cidade" placeholder="Ex: Jaraguá do Sul/SC">
                     </div>
                     <div class="form-group">
                         <label for="data_cadastro">Data Cadastro</label>
@@ -161,6 +165,7 @@
                     <th>Contato</th>
                     <th>Vendedor</th>
                     <th>Endereço</th>
+                    <th>Cidade/UF</th>
                     <th>Data Cadastro</th>
                     <th>Aviso Retorno</th>
                     <th>Ação</th>
@@ -180,6 +185,7 @@
                     <td>{{ cliente.contato or '-' }}</td>
                     <td>{{ cliente.vendedor or '-' }}</td>
                     <td>{{ cliente.endereco or '-' }}</td>
+                    <td>{{ cliente.cidade or '-' }}</td>
                     <td>{{ cliente.data_cadastro.strftime('%d/%m/%Y') }}</td>
                     <td><span style="background: #e8f4fd; color: #2980b9; padding: 4px 8px; border-radius: 4px; font-weight: bold;">{{ cliente.dias_aviso }} dias</span></td>
                     <td><a href="/clientes/{{ cliente.id }}" style="background: #3498db; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold;">Ver / Editar</a></td>

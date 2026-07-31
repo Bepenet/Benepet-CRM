@@ -64,6 +64,8 @@ def montar_link_whatsapp_nf(venda):
     linhas.append(f"CNPJ/CPF: {cliente.cpf_cnpj or 'não informado'}")
     if cliente.endereco:
         linhas.append(f"Endereço: {cliente.endereco}")
+    if cliente.cidade:
+        linhas.append(f"Cidade/UF: {cliente.cidade}")
     if cliente.email:
         linhas.append(f"E-mail: {cliente.email}")
     linhas.append(f"Data: {venda.data_efetiva.strftime('%d/%m/%Y')}")
@@ -136,6 +138,9 @@ def garantir_colunas_novas():
         if 'email' not in colunas_cliente:
             conn.execute(text('ALTER TABLE cliente ADD COLUMN email VARCHAR(120)'))
             conn.commit()
+        if 'cidade' not in colunas_cliente:
+            conn.execute(text('ALTER TABLE cliente ADD COLUMN cidade VARCHAR(100)'))
+            conn.commit()
 
     colunas_usuario = [c['name'] for c in inspector.get_columns('usuario')]
     if 'precisa_trocar_senha' not in colunas_usuario:
@@ -157,6 +162,9 @@ def garantir_colunas_novas():
                 conn.commit()
             if 'endereco' not in colunas_vendedor:
                 conn.execute(text('ALTER TABLE vendedor ADD COLUMN endereco VARCHAR(255)'))
+                conn.commit()
+            if 'cidade' not in colunas_vendedor:
+                conn.execute(text('ALTER TABLE vendedor ADD COLUMN cidade VARCHAR(100)'))
                 conn.commit()
     except Exception as e:
         print(f"Aviso ao verificar tabela vendedor: {e}")
@@ -474,6 +482,7 @@ def vendedores():
         telefone = request.form.get('telefone')
         email = request.form.get('email')
         endereco = request.form.get('endereco')
+        cidade = request.form.get('cidade')
         comissao_pct = request.form.get('comissao_pct') or 0
 
         if not nome:
@@ -481,7 +490,7 @@ def vendedores():
         elif Vendedor.query.filter_by(nome=nome).first():
             flash('Já existe um vendedor com esse nome.', 'erro')
         else:
-            db.session.add(Vendedor(nome=nome, telefone=telefone, email=email, endereco=endereco, comissao_pct=float(comissao_pct)))
+            db.session.add(Vendedor(nome=nome, telefone=telefone, email=email, endereco=endereco, cidade=cidade, comissao_pct=float(comissao_pct)))
             db.session.commit()
             flash(f'Vendedor "{nome}" cadastrado com sucesso!', 'sucesso')
         return redirect(url_for('vendedores'))
@@ -511,6 +520,7 @@ def editar_vendedor(id):
     vendedor.telefone = request.form.get('telefone')
     vendedor.email = request.form.get('email')
     vendedor.endereco = request.form.get('endereco')
+    vendedor.cidade = request.form.get('cidade')
     vendedor.comissao_pct = float(request.form.get('comissao_pct') or 0)
     db.session.commit()
 
@@ -550,6 +560,7 @@ def clientes():
         nome_fantasia = request.form.get('nome_fantasia')
         cpf_cnpj = request.form.get('cpf_cnpj')
         endereco = request.form.get('endereco')
+        cidade = request.form.get('cidade')
         telefone = request.form.get('telefone')
         email = request.form.get('email')
         contato = request.form.get('contato')
@@ -567,6 +578,7 @@ def clientes():
             nome_fantasia=nome_fantasia,
             cpf_cnpj=cpf_cnpj,
             endereco=endereco,
+            cidade=cidade,
             telefone=telefone,
             email=email,
             contato=contato,
@@ -597,6 +609,7 @@ def detalhe_cliente(id):
         cliente.nome_fantasia = request.form.get('nome_fantasia')
         cliente.cpf_cnpj = request.form.get('cpf_cnpj')
         cliente.endereco = request.form.get('endereco')
+        cliente.cidade = request.form.get('cidade')
         cliente.telefone = request.form.get('telefone')
         cliente.email = request.form.get('email')
         cliente.contato = request.form.get('contato')

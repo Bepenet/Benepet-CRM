@@ -15,6 +15,7 @@ class Vendedor(db.Model):
     telefone = db.Column(db.String(20))
     email = db.Column(db.String(120))
     endereco = db.Column(db.String(255))
+    cidade = db.Column(db.String(100))
     comissao_pct = db.Column(db.Float, default=0)  # percentual de comissão sobre vendas
 
 class Cliente(db.Model):
@@ -23,6 +24,7 @@ class Cliente(db.Model):
     nome_fantasia = db.Column(db.String(100))
     cpf_cnpj = db.Column(db.String(20))
     endereco = db.Column(db.String(255))
+    cidade = db.Column(db.String(100))
     telefone = db.Column(db.String(20))  # Whats/Tel
     email = db.Column(db.String(120))  # E-mail
     contato = db.Column(db.String(100))  # Pessoa de contato
