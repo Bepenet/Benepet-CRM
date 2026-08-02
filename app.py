@@ -896,12 +896,38 @@ def relatorio_comissao():
         return redirect(url_for('login'))
 
     hoje = datetime.utcnow()
+    meses_nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+    periodo = request.args.get('periodo', 'mes')
     mes = request.args.get('mes', hoje.month, type=int)
     ano = request.args.get('ano', hoje.year, type=int)
     vendedor_filtro = request.args.get('vendedor', '')
+    data_inicio_str = request.args.get('data_inicio', '')
+    data_fim_str = request.args.get('data_fim', '')
+
+    if periodo == 'ano':
+        data_inicio = datetime(ano, 1, 1)
+        data_fim = datetime(ano, 12, 31, 23, 59, 59)
+        rotulo_periodo = str(ano)
+    elif periodo == 'periodo':
+        if not data_inicio_str:
+            data_inicio_str = datetime(hoje.year, hoje.month, 1).strftime('%Y-%m-%d')
+        if not data_fim_str:
+            data_fim_str = hoje.strftime('%Y-%m-%d')
+        data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d')
+        data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        rotulo_periodo = f"{data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}"
+    else:
+        data_inicio = datetime(ano, mes, 1)
+        if mes == 12:
+            data_fim = datetime(ano + 1, 1, 1) - timedelta(seconds=1)
+        else:
+            data_fim = datetime(ano, mes + 1, 1) - timedelta(seconds=1)
+        rotulo_periodo = f"{meses_nomes[mes - 1]} de {ano}"
 
     vendas_pagas = [v for v in Venda.query.filter_by(paga=True).all()
-                    if v.data_pagamento and v.data_pagamento.month == mes and v.data_pagamento.year == ano]
+                    if v.data_pagamento and data_inicio <= v.data_pagamento <= data_fim]
 
     if vendedor_filtro:
         vendas_pagas = [v for v in vendas_pagas if (v.vendedor or '') == vendedor_filtro]
@@ -924,10 +950,10 @@ def relatorio_comissao():
 
     vendas_pagas.sort(key=lambda v: v.data_pagamento or v.data, reverse=True)
     vendedores = Vendedor.query.order_by(Vendedor.nome).all()
-    meses_nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
     return render_template('comissao_vendedores.html',
-                           mes=mes, ano=ano, vendedor_filtro=vendedor_filtro,
+                           periodo=periodo, mes=mes, ano=ano, vendedor_filtro=vendedor_filtro,
+                           data_inicio_str=data_inicio_str, data_fim_str=data_fim_str,
+                           rotulo_periodo=rotulo_periodo,
                            resumo=resumo, vendas_pagas=vendas_pagas, vendedores=vendedores,
                            hoje=hoje, meses_nomes=meses_nomes)
 
