@@ -88,38 +88,7 @@
         <h2 class="header-title">Comissão de Vendedores - {{ rotulo_periodo }}</h2>
 
         <form class="filtros" method="GET" action="/relatorios/comissao">
-            <div class="form-group">
-                <label for="periodo">Período</label>
-                <select id="periodo" name="periodo" onchange="alternarPeriodo()">
-                    <option value="mes" {% if periodo == 'mes' %}selected{% endif %}>Mês</option>
-                    <option value="ano" {% if periodo == 'ano' %}selected{% endif %}>Ano</option>
-                    <option value="periodo" {% if periodo == 'periodo' %}selected{% endif %}>Período específico</option>
-                </select>
-            </div>
-            <div class="form-group" id="grupo-mes">
-                <label for="mes">Mês</label>
-                <select id="mes" name="mes">
-                    {% for numero in range(1, 13) %}
-                    <option value="{{ numero }}" {% if numero == mes %}selected{% endif %}>{{ meses_nomes[numero - 1] }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group" id="grupo-ano">
-                <label for="ano">Ano</label>
-                <select id="ano" name="ano">
-                    {% for ano_opcao in range(hoje.year + 1, hoje.year - 6, -1) %}
-                    <option value="{{ ano_opcao }}" {% if ano_opcao == ano %}selected{% endif %}>{{ ano_opcao }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group" id="grupo-data-inicio">
-                <label for="data_inicio">Data Início</label>
-                <input type="date" id="data_inicio" name="data_inicio" value="{{ data_inicio_str }}">
-            </div>
-            <div class="form-group" id="grupo-data-fim">
-                <label for="data_fim">Data Fim</label>
-                <input type="date" id="data_fim" name="data_fim" value="{{ data_fim_str }}">
-            </div>
+            {% include 'periodo_filtro.html' %}
             <div class="form-group">
                 <label for="vendedor">Vendedor</label>
                 <select id="vendedor" name="vendedor">
@@ -215,16 +184,6 @@
         document.getElementById('sidebar').classList.toggle('aberta');
         document.getElementById('overlayMenu').classList.toggle('ativo');
     }
-
-    function alternarPeriodo() {
-        var periodo = document.getElementById('periodo').value;
-        document.getElementById('grupo-mes').style.display = (periodo === 'mes') ? 'flex' : 'none';
-        document.getElementById('grupo-ano').style.display = (periodo === 'periodo') ? 'none' : 'flex';
-        document.getElementById('grupo-data-inicio').style.display = (periodo === 'periodo') ? 'flex' : 'none';
-        document.getElementById('grupo-data-fim').style.display = (periodo === 'periodo') ? 'flex' : 'none';
-    }
-
-    alternarPeriodo();
     </script>
 
     <script src="/static/notificacoes.js"></script>

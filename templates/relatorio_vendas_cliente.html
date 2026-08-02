@@ -93,11 +93,12 @@
         {% include 'cabecalho_impressao.html' %}
         <a href="/relatorios" class="voltar-btn">← Voltar para Relatórios</a>
         <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
-        <h2 class="header-title">Vendas por Cliente</h2>
+        <h2 class="header-title">Vendas por Cliente - {{ rotulo_periodo }}</h2>
 
         <div class="data-section">
             <h3 class="section-title"><i class="fa-solid fa-user-tie" style="color: #3b82f6;"></i> Selecionar Cliente</h3>
             <form method="GET" action="/relatorios/vendas-por-cliente" class="seletor">
+                {% include 'periodo_filtro.html' %}
                 <select name="cliente_id" required>
                     <option value="">— Selecione o cliente —</option>
                     {% for c in clientes %}

@@ -51,6 +51,52 @@ def agora_brasil():
     fuso local da equipe para bater com as datas/horas informadas no sistema."""
     return datetime.utcnow() - timedelta(hours=3)
 
+def parametros_periodo():
+    """Lê os filtros de período (Mês, Ano ou intervalo) e devolve o intervalo de
+    datas (data_inicio/data_fim) e o rótulo para exibição nos relatórios."""
+    hoje = datetime.utcnow()
+    meses_nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+    periodo = request.args.get('periodo', 'mes')
+    mes = request.args.get('mes', hoje.month, type=int)
+    ano = request.args.get('ano', hoje.year, type=int)
+    data_inicio_str = request.args.get('data_inicio', '')
+    data_fim_str = request.args.get('data_fim', '')
+
+    if periodo == 'ano':
+        data_inicio = datetime(ano, 1, 1)
+        data_fim = datetime(ano, 12, 31, 23, 59, 59)
+        rotulo_periodo = str(ano)
+    elif periodo == 'periodo':
+        if not data_inicio_str:
+            data_inicio_str = datetime(hoje.year, hoje.month, 1).strftime('%Y-%m-%d')
+        if not data_fim_str:
+            data_fim_str = hoje.strftime('%Y-%m-%d')
+        data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d')
+        data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        rotulo_periodo = f"{data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}"
+    else:
+        data_inicio = datetime(ano, mes, 1)
+        if mes == 12:
+            data_fim = datetime(ano + 1, 1, 1) - timedelta(seconds=1)
+        else:
+            data_fim = datetime(ano, mes + 1, 1) - timedelta(seconds=1)
+        rotulo_periodo = f"{meses_nomes[mes - 1]} de {ano}"
+
+    return {
+        'periodo': periodo,
+        'mes': mes,
+        'ano': ano,
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
+        'data_inicio_str': data_inicio_str,
+        'data_fim_str': data_fim_str,
+        'rotulo_periodo': rotulo_periodo,
+        'hoje': hoje,
+        'meses_nomes': meses_nomes,
+    }
+
 # Número que recebe o aviso de vendas confirmadas para emissão de NF (com DDI+DDD)
 WHATSAPP_NF_NUMERO = os.environ.get('WHATSAPP_NF_NUMERO', '5547988139107')
 
@@ -358,7 +404,9 @@ def relatorio_vendas_por_vendedor():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
-    vendas = Venda.query.join(Cliente).filter(Venda.status == 'Confirmada').all()
+    pp = parametros_periodo()
+    vendas = [v for v in Venda.query.join(Cliente).filter(Venda.status == 'Confirmada').all()
+              if pp['data_inicio'] <= v.data_efetiva <= pp['data_fim']]
     totais = {}
     for venda in vendas:
         vendedor = venda.vendedor or venda.cliente.vendedor or 'Sem vendedor definido'
@@ -371,13 +419,14 @@ def relatorio_vendas_por_vendedor():
         dados['valor_fmt'] = formatar_moeda(dados['valor'])
 
     resultado = sorted(totais.items(), key=lambda item: item[1]['valor'], reverse=True)
-    return render_template('relatorio_vendas_vendedor.html', vendedores=resultado)
+    return render_template('relatorio_vendas_vendedor.html', vendedores=resultado, **pp)
 
 @app.route('/relatorios/vendas-por-cliente')
 def relatorio_vendas_por_cliente():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
+    pp = parametros_periodo()
     clientes = Cliente.query.order_by(Cliente.nome).all()
     cliente_selecionado = None
     vendas = []
@@ -388,7 +437,9 @@ def relatorio_vendas_por_cliente():
     if cliente_id:
         cliente_selecionado = Cliente.query.get(cliente_id)
         if cliente_selecionado:
-            vendas = sorted(cliente_selecionado.vendas, key=lambda v: v.data, reverse=True)
+            vendas = [v for v in cliente_selecionado.vendas
+                      if pp['data_inicio'] <= v.data_efetiva <= pp['data_fim']]
+            vendas = sorted(vendas, key=lambda v: v.data, reverse=True)
             total_vendas = len(vendas)
             valor_total = sum(v.valor_total for v in vendas)
 
@@ -397,7 +448,8 @@ def relatorio_vendas_por_cliente():
                            cliente=cliente_selecionado,
                            vendas=vendas,
                            total_vendas=total_vendas,
-                           valor_total_fmt=formatar_moeda(valor_total))
+                           valor_total_fmt=formatar_moeda(valor_total),
+                           **pp)
 
 @app.route('/relatorios/vendas-por-mes')
 def relatorio_vendas_por_mes():
@@ -407,7 +459,9 @@ def relatorio_vendas_por_mes():
     meses_pt = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-    vendas = Venda.query.filter_by(status='Confirmada').all()
+    pp = parametros_periodo()
+    vendas = [v for v in Venda.query.filter_by(status='Confirmada').all()
+              if pp['data_inicio'] <= v.data_efetiva <= pp['data_fim']]
     totais = {}
     for venda in vendas:
         chave = (venda.data_efetiva.year, venda.data_efetiva.month)
@@ -421,7 +475,7 @@ def relatorio_vendas_por_mes():
         dados['label'] = f"{meses_pt[chave[1]]}/{chave[0]}"
 
     resultado = sorted(totais.items(), key=lambda item: item[0], reverse=True)
-    return render_template('relatorio_vendas_mes.html', meses=resultado)
+    return render_template('relatorio_vendas_mes.html', meses=resultado, **pp)
 
 @app.route('/consignacoes-pendentes')
 def consignacoes_pendentes():
@@ -747,8 +801,10 @@ def relatorio_vendas():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
-    vendas = Venda.query.order_by(Venda.data.desc()).all()
-    return render_template('detalhe_vendas.html', vendas=vendas)
+    pp = parametros_periodo()
+    vendas = [v for v in Venda.query.order_by(Venda.data.desc()).all()
+              if pp['data_inicio'] <= v.data <= pp['data_fim']]
+    return render_template('detalhe_vendas.html', vendas=vendas, **pp)
 
 @app.route('/venda/detalhar/<int:id>')
 def detalhar_venda(id):
@@ -896,38 +952,11 @@ def relatorio_comissao():
         return redirect(url_for('login'))
 
     hoje = datetime.utcnow()
-    meses_nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-
-    periodo = request.args.get('periodo', 'mes')
-    mes = request.args.get('mes', hoje.month, type=int)
-    ano = request.args.get('ano', hoje.year, type=int)
+    pp = parametros_periodo()
     vendedor_filtro = request.args.get('vendedor', '')
-    data_inicio_str = request.args.get('data_inicio', '')
-    data_fim_str = request.args.get('data_fim', '')
-
-    if periodo == 'ano':
-        data_inicio = datetime(ano, 1, 1)
-        data_fim = datetime(ano, 12, 31, 23, 59, 59)
-        rotulo_periodo = str(ano)
-    elif periodo == 'periodo':
-        if not data_inicio_str:
-            data_inicio_str = datetime(hoje.year, hoje.month, 1).strftime('%Y-%m-%d')
-        if not data_fim_str:
-            data_fim_str = hoje.strftime('%Y-%m-%d')
-        data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d')
-        data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-        rotulo_periodo = f"{data_inicio.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}"
-    else:
-        data_inicio = datetime(ano, mes, 1)
-        if mes == 12:
-            data_fim = datetime(ano + 1, 1, 1) - timedelta(seconds=1)
-        else:
-            data_fim = datetime(ano, mes + 1, 1) - timedelta(seconds=1)
-        rotulo_periodo = f"{meses_nomes[mes - 1]} de {ano}"
 
     vendas_pagas = [v for v in Venda.query.filter_by(paga=True).all()
-                    if v.data_pagamento and data_inicio <= v.data_pagamento <= data_fim]
+                    if v.data_pagamento and pp['data_inicio'] <= v.data_pagamento <= pp['data_fim']]
 
     if vendedor_filtro:
         vendas_pagas = [v for v in vendas_pagas if (v.vendedor or '') == vendedor_filtro]
@@ -951,11 +980,9 @@ def relatorio_comissao():
     vendas_pagas.sort(key=lambda v: v.data_pagamento or v.data, reverse=True)
     vendedores = Vendedor.query.order_by(Vendedor.nome).all()
     return render_template('comissao_vendedores.html',
-                           periodo=periodo, mes=mes, ano=ano, vendedor_filtro=vendedor_filtro,
-                           data_inicio_str=data_inicio_str, data_fim_str=data_fim_str,
-                           rotulo_periodo=rotulo_periodo,
+                           vendedor_filtro=vendedor_filtro,
                            resumo=resumo, vendas_pagas=vendas_pagas, vendedores=vendedores,
-                           hoje=hoje, meses_nomes=meses_nomes)
+                           **pp)
 
 TIPOS_HISTORICO = ['WhatsApp', 'Telefone', 'E-mail', 'Amostra', 'Visita', 'Negociação', 'Outro']
 

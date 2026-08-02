@@ -23,6 +23,9 @@
         .voltar-btn:hover { text-decoration: underline; }
 
         .data-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .filtros { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .filtros .btn-filtrar { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .filtros .btn-filtrar:hover { background: #1d4ed8; }
         .custom-table { width: 100%; border-collapse: collapse; text-align: left; }
         .custom-table th { padding: 14px 16px; background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0; }
         .custom-table td { padding: 14px 16px; color: #334155; font-size: 15px; border-bottom: 1px solid #f1f5f9; }
@@ -78,7 +81,12 @@
         {% include 'cabecalho_impressao.html' %}
         <a href="/relatorios" class="voltar-btn">← Voltar para Relatórios</a>
         <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
-        <h2 class="header-title">Vendas por Vendedor</h2>
+        <h2 class="header-title">Vendas por Vendedor - {{ rotulo_periodo }}</h2>
+
+        <form class="filtros" method="GET" action="/relatorios/vendas-por-vendedor">
+            {% include 'periodo_filtro.html' %}
+            <button type="submit" class="btn-filtrar"><i class="fa-solid fa-magnifying-glass"></i> Filtrar</button>
+        </form>
 
         <div class="data-section">
             <table class="custom-table">

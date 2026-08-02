@@ -130,6 +130,9 @@
             font-style: italic;
         }
         .tabela-scroll { overflow-x: auto; }
+        .filtros { background: #fff; padding: 18px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .btn-filtrar { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .btn-filtrar:hover { background: #1e7e34; }
         @media (max-width: 700px) {
             .container-relatorio { padding: 15px; margin: 15px; }
             .tabela-vendas { min-width: 560px; }
@@ -209,7 +212,12 @@
             </table>
             </div>
         {% else %}
-            <h2 class="titulo-pagina">Histórico de Vendas Lançadas</h2>
+            <h2 class="titulo-pagina">Histórico de Vendas Lançadas - {{ rotulo_periodo }}</h2>
+
+            <form class="filtros" method="GET" action="/vendas/relatorio">
+                {% include 'periodo_filtro.html' %}
+                <button type="submit" class="btn-filtrar"><i class="fa-solid fa-magnifying-glass"></i> Filtrar</button>
+            </form>
 
             <div class="tabela-scroll">
             <table class="tabela-vendas" id="tabela-historico">
