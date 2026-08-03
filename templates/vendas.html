@@ -102,7 +102,7 @@
             <div style="flex: 1;">
                 <label style="display:block; margin-bottom:5px; font-weight:bold;">Prazo de Pagamento:</label>
                 <select id="prazo_pagamento" style="width:100%; padding:8px;">
-                    {% set prazos = ['A Vista (Pix)', 'A Vista (Dinheiro)', 'Prazo 7 dias', 'Prazo 15 dias', 'Prazo 30 dias', 'Parcelado 30/60', 'Parcelado 30/45/60', 'Parcelado 15/30/45', 'Parcelado 15/30/45/60'] %}
+                    {% set prazos = ['A Vista (Pix)', 'A Vista (Dinheiro)', 'Prazo 7 dias', 'Prazo 15 dias', 'Prazo 20 dias', 'Prazo 30 dias', 'Parcelado 30/60', 'Parcelado 30/45/60', 'Parcelado 15/30/45', 'Parcelado 15/30/45/60'] %}
                     {% for p in prazos %}
                         <option value="{{ p }}" {% if duplicar_dados and duplicar_dados.prazo_pagamento == p %}selected{% endif %}>{{ p }}</option>
                     {% endfor %}
