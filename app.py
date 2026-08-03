@@ -1010,6 +1010,29 @@ def verificar_acoes_json():
         })
     return jsonify({'acoes': acoes})
 
+@app.route('/prospeccoes/<int:id>/postergar', methods=['POST'])
+def postergar_acao(id):
+    if not usuario_esta_logado():
+        return jsonify({"erro": "Não autorizado"}), 401
+
+    prospeccao = Prospeccao.query.get_or_404(id)
+    minutos = request.form.get('minutos', type=int) or 60
+
+    if not prospeccao.proxima_acao_data:
+        return jsonify({"erro": "Prospecção sem próxima ação."}), 400
+
+    dt_atual = prospeccao.proxima_acao_dt or agora_brasil()
+    nova_dt = max(dt_atual, agora_brasil()) + timedelta(minutes=minutos)
+    prospeccao.proxima_acao_data = nova_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    prospeccao.proxima_acao_hora = nova_dt.strftime('%H:%M')
+    db.session.commit()
+
+    return jsonify({
+        "mensagem": "Ação postergada!",
+        "nova_data": nova_dt.strftime('%d/%m/%Y'),
+        "nova_hora": nova_dt.strftime('%H:%M'),
+    }), 200
+
 @app.route('/prospeccoes', methods=['GET', 'POST'])
 def prospeccoes():
     if not usuario_esta_logado():

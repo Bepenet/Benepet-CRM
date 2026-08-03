@@ -67,9 +67,46 @@
             'border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;';
         botao.onclick = function () { document.body.removeChild(overlay); };
 
+        var adiar = document.createElement('div');
+        adiar.style.cssText = 'margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0;';
+
+        var adiarLabel = document.createElement('div');
+        adiarLabel.textContent = 'Me lembrar novamente em:';
+        adiarLabel.style.cssText = 'font-size:13px;color:#64748b;font-weight:600;margin-bottom:8px;';
+
+        var adiarBotoes = document.createElement('div');
+        adiarBotoes.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+
+        [['15 min', 15], ['30 min', 30], ['1 hora', 60], ['1 dia', 1440]].forEach(function (opcao) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = opcao[0];
+            b.style.cssText =
+                'background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;padding:8px 12px;' +
+                'border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;';
+            b.onclick = function () {
+                b.disabled = true;
+                b.textContent = '...';
+                fetch('/prospeccoes/' + acao.id + '/postergar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'minutos=' + opcao[1]
+                }).then(function (res) { return res.ok; }).then(function (ok) {
+                    document.body.removeChild(overlay);
+                }).catch(function () {
+                    b.disabled = false;
+                    b.textContent = opcao[0];
+                });
+            };
+            adiarBotoes.appendChild(b);
+        });
+
+        adiar.appendChild(adiarLabel);
+        adiar.appendChild(adiarBotoes);
         corpo.appendChild(nome);
         corpo.appendChild(desc);
         corpo.appendChild(quando);
+        corpo.appendChild(adiar);
         corpo.appendChild(botoes);
         botoes.appendChild(link);
         botoes.appendChild(botao);
