@@ -44,6 +44,10 @@ def formatar_moeda(valor):
     """Formata um número no padrão brasileiro: milhar com ponto, decimal com vírgula."""
     return '{:,.2f}'.format(valor or 0).replace(',', 'X').replace('.', ',').replace('X', '.')
 
+@app.template_filter('moeda')
+def filtro_moeda(valor):
+    return formatar_moeda(valor)
+
 def agora_brasil():
     """Data/hora atual no fuso do Brasil (UTC-3), usado nas comparações de lembrete.
 
@@ -476,6 +480,42 @@ def relatorio_vendas_por_mes():
 
     resultado = sorted(totais.items(), key=lambda item: item[0], reverse=True)
     return render_template('relatorio_vendas_mes.html', meses=resultado, **pp)
+
+@app.route('/relatorios/historico-vendas')
+def relatorio_historico_vendas():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    hoje = datetime.utcnow()
+    ano = request.args.get('ano', hoje.year, type=int)
+
+    vendas = [v for v in Venda.query.filter_by(status='Confirmada').all()
+              if v.data_efetiva.year == ano]
+
+    agrupado = {}
+    totais_meses = [0.0] * 12
+    total_geral = 0.0
+    for venda in vendas:
+        vendedor = venda.vendedor or venda.cliente.vendedor or 'Sem vendedor'
+        cliente = venda.cliente.nome_exibicao
+        mes = venda.data_efetiva.month
+        grupo = agrupado.setdefault(vendedor, {'clientes': {}, 'total': 0.0})
+        grupo['total'] += venda.valor_total
+        dados_cliente = grupo['clientes'].setdefault(cliente, {'meses': [0.0] * 12, 'total': 0.0})
+        dados_cliente['meses'][mes - 1] += venda.valor_total
+        dados_cliente['total'] += venda.valor_total
+        totais_meses[mes - 1] += venda.valor_total
+        total_geral += venda.valor_total
+
+    lista = []
+    for vendedor, grupo in agrupado.items():
+        clientes = sorted(grupo['clientes'].items(), key=lambda item: item[1]['total'], reverse=True)
+        lista.append({'vendedor': vendedor, 'total': grupo['total'], 'clientes': clientes})
+    lista.sort(key=lambda g: g['total'], reverse=True)
+
+    return render_template('relatorio_historico_vendas.html',
+                           grupos=lista, ano=ano, hoje=hoje,
+                           totais_meses=totais_meses, total_geral=total_geral)
 
 @app.route('/consignacoes-pendentes')
 def consignacoes_pendentes():
