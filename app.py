@@ -757,7 +757,7 @@ def vendas():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
-    clientes = Cliente.query.all()
+    clientes = sorted(Cliente.query.all(), key=lambda c: c.nome_exibicao or c.nome)
     vendedores = Vendedor.query.order_by(Vendedor.nome).all()
     historico_vendas = Venda.query.order_by(Venda.data.desc()).all()
     return render_template('vendas.html', clientes=clientes, vendas=historico_vendas, vendedores=vendedores)
@@ -939,7 +939,7 @@ def editar_venda(id):
         db.session.commit()
         return jsonify({"mensagem": "Venda atualizada!"}), 200
 
-    clientes = Cliente.query.all()
+    clientes = sorted(Cliente.query.all(), key=lambda c: c.nome_exibicao or c.nome)
     vendedores = Vendedor.query.order_by(Vendedor.nome).all()
     return render_template('editar_venda.html', venda=venda, clientes=clientes, vendedores=vendedores)
 
