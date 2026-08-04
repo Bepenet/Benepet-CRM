@@ -134,6 +134,13 @@
                     <option value="Pendente" {% if venda.status != 'Confirmada' %}selected{% endif %}>Consignado (Pendente)</option>
                 </select>
             </div>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Emitir NF:</label>
+                <select id="emitir_nf" style="padding:8px;">
+                    <option value="1" {% if venda.emitir_nf is not false %}selected{% endif %}>Emitir NF</option>
+                    <option value="0" {% if venda.emitir_nf is false %}selected{% endif %}>Não Emitir NF</option>
+                </select>
+            </div>
         </div>
 
         <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
@@ -262,7 +269,8 @@
                 prazo_pagamento: document.getElementById('prazo_pagamento').value,
                 tipo_venda: document.querySelector('input[name="tipo_venda"]:checked').value,
                 status: document.getElementById('status_venda').value,
-                vendedor: document.getElementById('vendedor').value
+                vendedor: document.getElementById('vendedor').value,
+                emitir_nf: document.getElementById('emitir_nf').value === '1'
             };
 
             fetch('/vendas/{{ venda.id }}/editar', {

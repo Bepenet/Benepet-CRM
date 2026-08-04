@@ -117,6 +117,13 @@
                     {% endfor %}
                 </select>
             </div>
+            <div>
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Emitir NF:</label>
+                <select id="emitir_nf" style="padding:8px;">
+                    <option value="1" {% if not duplicar_dados or duplicar_dados.emitir_nf %}selected{% endif %}>Emitir NF</option>
+                    <option value="0" {% if duplicar_dados and not duplicar_dados.emitir_nf %}selected{% endif %}>Não Emitir NF</option>
+                </select>
+            </div>
         </div>
 
         <fieldset style="border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
@@ -249,7 +256,8 @@
                 itens: carrinho,
                 prazo_pagamento: document.getElementById('prazo_pagamento').value,
                 tipo_venda: document.querySelector('input[name="tipo_venda"]:checked').value,
-                vendedor: document.getElementById('vendedor').value
+                vendedor: document.getElementById('vendedor').value,
+                emitir_nf: document.getElementById('emitir_nf').value === '1'
             };
 
             fetch('/salvar_venda_multipla', {
@@ -262,8 +270,13 @@
                 if (ok) {
                     if (payload.tipo_venda === 'Consignado') {
                         alert("Consignação registrada! Ela vai aparecer em 'Consignações Pendentes' até você confirmar a revenda.");
-                    } else {
+                    } else if (payload.emitir_nf) {
                         alert("Perfeito! Venda salva com sucesso! Abrindo o WhatsApp para enviar os dados da NF...");
+                        if (data.link_whatsapp) {
+                            window.open(data.link_whatsapp, '_blank');
+                        }
+                    } else {
+                        alert("Perfeito! Venda salva com sucesso! Abrindo o WhatsApp para avisar que NÃO será emitida NF...");
                         if (data.link_whatsapp) {
                             window.open(data.link_whatsapp, '_blank');
                         }

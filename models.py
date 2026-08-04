@@ -86,6 +86,7 @@ class Venda(db.Model):
     vendedor = db.Column(db.String(100))  # vendedor responsável pela venda
     paga = db.Column(db.Boolean, default=False)  # boleto pago
     data_pagamento = db.Column(db.DateTime)  # data em que o boleto foi pago
+    emitir_nf = db.Column(db.Boolean, default=True)  # se a venda precisa de nota fiscal
 
     cliente = db.relationship('Cliente', backref=db.backref('vendas', lazy=True))
 

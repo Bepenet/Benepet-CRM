@@ -107,10 +107,16 @@ WHATSAPP_NF_NUMERO = os.environ.get('WHATSAPP_NF_NUMERO', '5547988139107')
 def montar_link_whatsapp_nf(venda):
     """Monta o link do WhatsApp (wa.me) com os dados da venda prontos para gerar a NF."""
     cliente = venda.cliente
-    linhas = [
-        "📄 *Nova venda confirmada - gerar NF*",
-        f"Cliente (Razão Social): {cliente.nome}",
-    ]
+    if venda.emitir_nf is False:
+        linhas = [
+            "📄 *Nova venda confirmada*",
+            "🚫 *Não Emitir NF*",
+        ]
+    else:
+        linhas = [
+            "📄 *Nova venda confirmada - gerar NF*",
+        ]
+    linhas.append(f"Cliente (Razão Social): {cliente.nome}")
     if cliente.nome_fantasia:
         linhas.append(f"Nome Fantasia: {cliente.nome_fantasia}")
     linhas.append(f"CNPJ/CPF: {cliente.cpf_cnpj or 'não informado'}")
@@ -179,6 +185,9 @@ def garantir_colunas_novas():
             conn.commit()
         if 'data_pagamento' not in colunas_venda:
             conn.execute(text('ALTER TABLE venda ADD COLUMN data_pagamento TIMESTAMP'))
+            conn.commit()
+        if 'emitir_nf' not in colunas_venda:
+            conn.execute(text('ALTER TABLE venda ADD COLUMN emitir_nf BOOLEAN DEFAULT TRUE'))
             conn.commit()
 
     colunas_cliente = [c['name'] for c in inspector.get_columns('cliente')]
@@ -798,6 +807,7 @@ def salvar_venda_multipla():
     prazo_pagamento = dados.get('prazo_pagamento')
     tipo_venda = dados.get('tipo_venda', 'Normal')
     vendedor = dados.get('vendedor')
+    emitir_nf = dados.get('emitir_nf', True)
 
     data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
     status_venda = 'Pendente' if tipo_venda == 'Consignado' else 'Confirmada'
@@ -810,7 +820,8 @@ def salvar_venda_multipla():
             prazo_pagamento=prazo_pagamento,
             tipo=tipo_venda,
             status=status_venda,
-            vendedor=vendedor
+            vendedor=vendedor,
+            emitir_nf=bool(emitir_nf)
         )
         db.session.add(nova_venda)
         db.session.flush()
@@ -873,6 +884,7 @@ def duplicar_venda(id):
         'prazo_pagamento': venda_origem.prazo_pagamento,
         'vendedor': venda_origem.vendedor or '',
         'tipo_venda': venda_origem.tipo or 'Normal',
+        'emitir_nf': venda_origem.emitir_nf is not False,
         'itens': [
             {
                 'produto': item.produto,
@@ -903,6 +915,7 @@ def editar_venda(id):
         status = dados.get('status', 'Confirmada')
         vendedor = dados.get('vendedor')
         itens = dados.get('itens')
+        emitir_nf = dados.get('emitir_nf', venda.emitir_nf)
 
         if not itens:
             return jsonify({"erro": "A venda precisa ter pelo menos um item."}), 400
@@ -915,6 +928,7 @@ def editar_venda(id):
         venda.tipo = tipo_venda
         venda.status = status
         venda.vendedor = vendedor
+        venda.emitir_nf = bool(emitir_nf)
         venda.valor_total = sum(float(i['valor_subtotal']) for i in itens)
 
         if status == 'Confirmada':
