@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -85,7 +86,7 @@
             <a href="/dashboard" class="menu-link active">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
-            {% if session['usuario'] == 'admin' %}
+            {% if is_admin %}
             <a href="/vendedores" class="menu-link">👤 Vendedores</a>
             <a href="/backups" class="menu-link">💾 Backups</a>
             {% endif %}
@@ -157,9 +158,9 @@
     </main>
 
     <script>
-    const usuarioLogado = "{{ usuario_logado }}";
+    const ehAdmin = {{ 'true' if is_admin else 'false' }};
 
-    if (usuarioLogado === 'admin') {
+    if (ehAdmin) {
         document.getElementById('btn-admin').style.display = 'flex';
     }
 

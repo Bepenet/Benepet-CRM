@@ -1,6 +1,11 @@
 (function () {
     var notificadas = {};
 
+    function tokenCsrf() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.content : '';
+    }
+
     function verificarAcoes() {
         fetch('/prospeccoes/verificar_acoes')
             .then(function (res) { return res.ok ? res.json() : null; })
@@ -89,7 +94,10 @@
                 b.textContent = '...';
                 fetch('/prospeccoes/' + acao.id + '/postergar', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': tokenCsrf()
+                    },
                     body: 'minutos=' + opcao[1]
                 }).then(function (res) { return res.ok; }).then(function (ok) {
                     document.body.removeChild(overlay);

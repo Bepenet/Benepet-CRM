@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lançar Venda - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f6f9; color: #333; display: flex; justify-content: flex-start; padding-left: 260px; min-height: 100vh; }
@@ -53,7 +54,7 @@
             <a href="/dashboard" class="menu-link">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
-            {% if session['usuario'] == 'admin' %}
+            {% if is_admin %}
             <a href="/vendedores" class="menu-link">👤 Vendedores</a>
             {% endif %}
             <a href="/vendas" class="menu-link active">🛒 Lançar Vendas</a>
@@ -170,7 +171,7 @@
     </div>
 
     <script>
-        if ("{{ session['usuario'] }}" === 'admin') {
+        if ({{ 'true' if is_admin else 'false' }}) {
             document.getElementById('btn-admin').style.display = 'flex';
         }
         function alternarMenu() {
@@ -262,7 +263,10 @@
 
             fetch('/salvar_venda_multipla', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
                 body: JSON.stringify(payload)
             })
             .then(res => res.json().then(data => ({ ok: res.ok, data })))

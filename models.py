@@ -1,13 +1,27 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 db = SQLAlchemy()
+
+TZ_BRASIL = ZoneInfo('America/Sao_Paulo')
+
+
+def agora_brasil():
+    """Data/hora atual no fuso do Brasil (UTC-3), sem informação de fuso.
+
+    Padronizamos o sistema inteiro em horários "ingênuos" de Brasília para que
+    as comparações entre datas gravadas e o 'agora' sejam consistentes,
+    independentemente do fuso em que o servidor roda."""
+    return datetime.now(TZ_BRASIL).replace(tzinfo=None)
+
 
 class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     login = db.Column(db.String(80), unique=True, nullable=False)
     senha = db.Column(db.String(256), nullable=False)
     precisa_trocar_senha = db.Column(db.Boolean, default=True)
+    admin = db.Column(db.Boolean, default=False)  # papel de administrador
 
 class Vendedor(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -38,6 +52,8 @@ class Cliente(db.Model):
     periodo_retorno = db.Column(db.Integer, default=30)  # Mantido por compatibilidade
     contato_adiado_ate = db.Column(db.DateTime)  # lembrete adiado manualmente até essa data
     contato_desconsiderado = db.Column(db.Boolean, default=False)  # lembrete ignorado permanentemente
+    vendedor_id = db.Column(db.Integer, db.ForeignKey('vendedor.id'))  # vendedor responsável (referência)
+    vendedor_obj = db.relationship('Vendedor', foreign_keys=[vendedor_id])
 
     @property
     def nome_exibicao(self):
@@ -66,12 +82,12 @@ class Cliente(db.Model):
         """True se já passou (ou é hoje) a data de contato, e o lembrete não foi desconsiderado."""
         if self.contato_desconsiderado:
             return False
-        return datetime.utcnow() >= self.proximo_contato
+        return agora_brasil() >= self.proximo_contato
 
     @property
     def dias_para_contato(self):
         """Quantos dias faltam (negativo = já passou do prazo)."""
-        delta = self.proximo_contato - datetime.utcnow()
+        delta = self.proximo_contato - agora_brasil()
         return delta.days
 
 class Venda(db.Model):
@@ -87,6 +103,8 @@ class Venda(db.Model):
     paga = db.Column(db.Boolean, default=False)  # boleto pago
     data_pagamento = db.Column(db.DateTime)  # data em que o boleto foi pago
     emitir_nf = db.Column(db.Boolean, default=True)  # se a venda precisa de nota fiscal
+    vendedor_id = db.Column(db.Integer, db.ForeignKey('vendedor.id'))  # vendedor responsável (referência)
+    vendedor_obj = db.relationship('Vendedor', foreign_keys=[vendedor_id])
 
     cliente = db.relationship('Cliente', backref=db.backref('vendas', lazy=True))
 

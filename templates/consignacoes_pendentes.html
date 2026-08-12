@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Consignações Pendentes - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -72,7 +73,7 @@
             <a href="/dashboard" class="menu-link">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
-            {% if session['usuario'] == 'admin' %}
+            {% if is_admin %}
             <a href="/vendedores" class="menu-link">👤 Vendedores</a>
             {% endif %}
             <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
@@ -125,7 +126,7 @@
                         <td><span class="badge-pendente">Aguardando revenda</span></td>
                         <td>
                             <a href="/venda/detalhar/{{ venda.id }}" class="btn-itens">Ver Itens</a>
-                            <form class="inline" action="/vendas/{{ venda.id }}/confirmar_consignacao" method="POST" onsubmit="return confirm('Confirmar que o cliente revendeu esses produtos? Isso vai virar uma venda de verdade e entrar nos relatórios.');">
+                            <form class="inline" action="/vendas/{{ venda.id }}/confirmar_consignacao" method="POST" onsubmit="return confirm('Confirmar que o cliente revendeu esses produtos? Isso vai virar uma venda de verdade e entrar nos relatórios.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn-confirmar">Confirmar Venda</button>
                             </form>
                         </td>

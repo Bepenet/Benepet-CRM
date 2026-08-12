@@ -1,17 +1,42 @@
 import os
+import secrets
 import unicodedata
+from pathlib import Path
 from urllib.parse import quote
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text, func
 from werkzeug.security import generate_password_hash, check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
-from models import db, Usuario, Cliente, Venda, ItemVenda, Prospeccao, HistoricoProspeccao, Vendedor
+from flask_wtf.csrf import CSRFProtect, CSRFError
+from flask_migrate import Migrate
+from models import db, Usuario, Cliente, Venda, ItemVenda, Prospeccao, HistoricoProspeccao, Vendedor, agora_brasil
 import backup as backup_mod
 
 app = Flask(__name__)
 
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'benepet_crm_secret_key_123')
+
+def _carregar_secret_key():
+    """Chave de sessão: vem da variável de ambiente (SECRET_KEY) ou, como plano
+    B, de um arquivo persistente local gerado na primeira execução."""
+    chave = os.environ.get('SECRET_KEY')
+    if chave:
+        return chave
+    caminho = Path(app.instance_path) / 'secret_key'
+    try:
+        return caminho.read_text(encoding='utf-8').strip()
+    except OSError:
+        nova = secrets.token_hex(32)
+        try:
+            Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+            caminho.write_text(nova, encoding='utf-8')
+        except OSError:
+            pass
+        return nova
+
+
+app.config['SECRET_KEY'] = _carregar_secret_key()
+csrf = CSRFProtect(app)
 
 # Nomes "oficiais" dos produtos e variações já lançadas que devem ser somadas juntas
 # (cobre diferenças de maiúscula/minúscula, acento e singular/plural)
@@ -48,17 +73,10 @@ def formatar_moeda(valor):
 def filtro_moeda(valor):
     return formatar_moeda(valor)
 
-def agora_brasil():
-    """Data/hora atual no fuso do Brasil (UTC-3), usado nas comparações de lembrete.
-
-    O servidor pode rodar em UTC, então o 'agora' precisa ser convertido para o
-    fuso local da equipe para bater com as datas/horas informadas no sistema."""
-    return datetime.utcnow() - timedelta(hours=3)
-
 def parametros_periodo():
     """Lê os filtros de período (Mês, Ano ou intervalo) e devolve o intervalo de
     datas (data_inicio/data_fim) e o rótulo para exibição nos relatórios."""
-    hoje = datetime.utcnow()
+    hoje = agora_brasil()
     meses_nomes = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
@@ -140,6 +158,38 @@ def montar_link_whatsapp_nf(venda):
     mensagem = "\n".join(linhas)
     return f"https://wa.me/{WHATSAPP_NF_NUMERO}?text={quote(mensagem)}"
 
+
+def validar_e_normalizar_itens(itens):
+    """Valida os itens recebidos do cliente e devolve (lista_normalizada, total).
+
+    O valor total e os subtotais são sempre recalculados aqui, no servidor,
+    para nunca confiar no que foi enviado pelo navegador. Em caso de erro,
+    devolve (None, mensagem_de_erro)."""
+    if not itens:
+        return None, "A venda precisa ter pelo menos um item."
+
+    itens_limpos = []
+    valor_total = 0.0
+    for item in itens:
+        produto = (item.get('produto') or '').strip()
+        try:
+            quantidade = int(item['quantidade'])
+            valor_unitario = float(item['valor_unitario'])
+        except (KeyError, TypeError, ValueError):
+            return None, "Item inválido: confira produto, quantidade e valor."
+        if not produto or quantidade <= 0 or valor_unitario < 0:
+            return None, "Quantidade precisa ser maior que zero e o produto precisa de nome."
+        subtotal = round(quantidade * valor_unitario, 2)
+        valor_total += subtotal
+        itens_limpos.append({
+            'produto': produto,
+            'quantidade': quantidade,
+            'valor_unitario': valor_unitario,
+            'valor_subtotal': subtotal,
+        })
+
+    return itens_limpos, round(valor_total, 2)
+
 base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
 
 if base_uri.startswith("postgres://"):
@@ -155,6 +205,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = base_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+migrate = Migrate(app, db)
 
 _tabelas_verificadas = False
 
@@ -218,9 +269,20 @@ def garantir_colunas_novas():
             conn.commit()
 
     colunas_usuario = [c['name'] for c in inspector.get_columns('usuario')]
-    if 'precisa_trocar_senha' not in colunas_usuario:
-        with db.engine.connect() as conn:
+    with db.engine.connect() as conn:
+        if 'precisa_trocar_senha' not in colunas_usuario:
             conn.execute(text('ALTER TABLE usuario ADD COLUMN precisa_trocar_senha BOOLEAN DEFAULT TRUE'))
+            conn.commit()
+        if 'admin' not in colunas_usuario:
+            conn.execute(text('ALTER TABLE usuario ADD COLUMN admin BOOLEAN DEFAULT FALSE'))
+            conn.commit()
+
+    with db.engine.connect() as conn:
+        if 'vendedor_id' not in [c['name'] for c in inspector.get_columns('cliente')]:
+            conn.execute(text('ALTER TABLE cliente ADD COLUMN vendedor_id INTEGER'))
+            conn.commit()
+        if 'vendedor_id' not in [c['name'] for c in inspector.get_columns('venda')]:
+            conn.execute(text('ALTER TABLE venda ADD COLUMN vendedor_id INTEGER'))
             conn.commit()
 
     colunas_prospeccao = [c['name'] for c in inspector.get_columns('prospeccao')]
@@ -250,6 +312,33 @@ def garantir_colunas_novas():
     except Exception as e:
         print(f"Aviso ao verificar tabela vendedor: {e}")
 
+
+def vincular_vendedores_existentes():
+    """Backfill pontual: preenche vendedor_id de Cliente/Venda antigos a partir
+    do nome gravado na coluna de texto, quando houver um cadastro correspondente."""
+    for c in Cliente.query.filter(Cliente.vendedor.isnot(None), Cliente.vendedor != '',
+                                  Cliente.vendedor_id.is_(None)).all():
+        vend = Vendedor.query.filter_by(nome=c.vendedor).first()
+        if vend:
+            c.vendedor_id = vend.id
+    for v in Venda.query.filter(Venda.vendedor.isnot(None), Venda.vendedor != '',
+                                Venda.vendedor_id.is_(None)).all():
+        vend = Vendedor.query.filter_by(nome=v.vendedor).first()
+        if vend:
+            v.vendedor_id = vend.id
+    db.session.commit()
+
+
+def aplicar_vendedor_por_nome(registro, nome):
+    """Mantém a coluna de texto e a FK de vendedor em sincronia num Cliente/Venda."""
+    registro.vendedor = nome or None
+    registro.vendedor_id = None
+    if nome:
+        vend = Vendedor.query.filter_by(nome=nome).first()
+        if vend:
+            registro.vendedor_id = vend.id
+
+
 @app.before_request
 def inicializar_banco_seguro():
     global _tabelas_verificadas
@@ -257,17 +346,53 @@ def inicializar_banco_seguro():
         try:
             db.create_all()
             garantir_colunas_novas()
-            if not Usuario.query.first():
+            vincular_vendedores_existentes()
+            admin_login = Usuario.query.filter_by(login='admin').first()
+            if admin_login:
+                if not admin_login.admin:
+                    admin_login.admin = True
+                    db.session.commit()
+            elif not Usuario.query.first():
                 senha_criptografada = generate_password_hash('admin')
-                usuario_padrao = Usuario(login='admin', senha=senha_criptografada, precisa_trocar_senha=True)
+                usuario_padrao = Usuario(login='admin', senha=senha_criptografada,
+                                         precisa_trocar_senha=True, admin=True)
                 db.session.add(usuario_padrao)
                 db.session.commit()
+            else:
+                primeiro = Usuario.query.order_by(Usuario.id).first()
+                if primeiro and not primeiro.admin:
+                    primeiro.admin = True
+                    db.session.commit()
             _tabelas_verificadas = True
         except Exception as e:
             print(f"Aviso de verificação do banco em produção: {e}")
 
 def usuario_esta_logado():
     return 'usuario' in session
+
+def usuario_atual():
+    """Devolve o usuário logado (ou None)."""
+    if 'usuario' not in session:
+        return None
+    return Usuario.query.filter_by(login=session['usuario']).first()
+
+def is_admin():
+    """True se o usuário logado tem papel de administrador."""
+    user = usuario_atual()
+    return bool(user and user.admin)
+
+@app.context_processor
+def injetar_contexto_global():
+    return {'is_admin': is_admin()}
+
+@app.errorhandler(CSRFError)
+def tratar_erro_csrf(e):
+    """Falha de token CSRF (formulário/sessão expirado ou ataque)."""
+    if request.is_json:
+        return jsonify({"erro": "Sessão expirada. Recarregue a página e tente novamente."}), 400
+    flash('Sessão expirada ou token de segurança inválido. Tente novamente.', 'erro')
+    destino = url_for('dashboard') if usuario_esta_logado() else url_for('login')
+    return redirect(destino), 400
 
 @app.before_request
 def forcar_troca_senha():
@@ -287,19 +412,6 @@ def index():
     if usuario_esta_logado():
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
-
-@app.route('/criar_admin_forcado')
-def criar_admin_forcado():
-    try:
-        db.drop_all()
-        db.create_all()
-        senha_criptografada = generate_password_hash('admin')
-        usuario_padrao = Usuario(login='admin', senha=senha_criptografada)
-        db.session.add(usuario_padrao)
-        db.session.commit()
-        return "Banco limpo e atualizado com novos campos!"
-    except Exception as e:
-        return f"Erro: {str(e)}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -418,15 +530,26 @@ def relatorio_vendas_por_vendedor():
         return redirect(url_for('login'))
 
     pp = parametros_periodo()
-    vendas = [v for v in Venda.query.join(Cliente).filter(Venda.status == 'Confirmada').all()
-              if pp['data_inicio'] <= v.data_efetiva <= pp['data_fim']]
+    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
+    vendedor_expr = func.coalesce(func.nullif(Venda.vendedor, ''),
+                                  func.nullif(Cliente.vendedor, ''),
+                                  'Sem vendedor definido')
+    linhas = db.session.query(
+        vendedor_expr.label('vendedor'),
+        func.count().label('quantidade_vendas'),
+        func.sum(Venda.valor_total).label('valor'),
+    ).select_from(Venda).join(Cliente, Venda.cliente_id == Cliente.id)\
+        .filter(Venda.status == 'Confirmada')\
+        .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))\
+        .group_by(vendedor_expr)\
+        .order_by(func.sum(Venda.valor_total).desc()).all()
+
     totais = {}
-    for venda in vendas:
-        vendedor = venda.vendedor or venda.cliente.vendedor or 'Sem vendedor definido'
-        if vendedor not in totais:
-            totais[vendedor] = {'quantidade_vendas': 0, 'valor': 0}
-        totais[vendedor]['quantidade_vendas'] += 1
-        totais[vendedor]['valor'] += venda.valor_total
+    for linha in linhas:
+        totais[linha.vendedor] = {
+            'quantidade_vendas': linha.quantidade_vendas,
+            'valor': linha.valor or 0,
+        }
 
     for vendedor, dados in totais.items():
         dados['valor_fmt'] = formatar_moeda(dados['valor'])
@@ -446,13 +569,15 @@ def relatorio_vendas_por_cliente():
     total_vendas = 0
     valor_total = 0
 
+    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
+
     cliente_id = request.args.get('cliente_id', type=int)
     if cliente_id:
         cliente_selecionado = Cliente.query.get(cliente_id)
         if cliente_selecionado:
-            vendas = [v for v in cliente_selecionado.vendas
-                      if pp['data_inicio'] <= v.data_efetiva <= pp['data_fim']]
-            vendas = sorted(vendas, key=lambda v: v.data, reverse=True)
+            vendas = Venda.query.filter(Venda.cliente_id == cliente_selecionado.id)\
+                .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))\
+                .order_by(Venda.data.desc()).all()
             total_vendas = len(vendas)
             valor_total = sum(v.valor_total for v in vendas)
 
@@ -473,15 +598,23 @@ def relatorio_vendas_por_mes():
                 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
     pp = parametros_periodo()
-    vendas = [v for v in Venda.query.filter_by(status='Confirmada').all()
-              if pp['data_inicio'] <= v.data_efetiva <= pp['data_fim']]
+    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
+    ano_expr = func.extract('year', data_efetiva)
+    mes_expr = func.extract('month', data_efetiva)
+    linhas = db.session.query(
+        ano_expr.label('ano'),
+        mes_expr.label('mes'),
+        func.count().label('quantidade_vendas'),
+        func.sum(Venda.valor_total).label('valor'),
+    ).filter(Venda.status == 'Confirmada')\
+        .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))\
+        .group_by(ano_expr, mes_expr)\
+        .order_by(ano_expr.desc(), mes_expr.desc()).all()
+
     totais = {}
-    for venda in vendas:
-        chave = (venda.data_efetiva.year, venda.data_efetiva.month)
-        if chave not in totais:
-            totais[chave] = {'quantidade_vendas': 0, 'valor': 0}
-        totais[chave]['quantidade_vendas'] += 1
-        totais[chave]['valor'] += venda.valor_total
+    for linha in linhas:
+        chave = (int(linha.ano), int(linha.mes))
+        totais[chave] = {'quantidade_vendas': linha.quantidade_vendas, 'valor': linha.valor or 0}
 
     for chave, dados in totais.items():
         dados['valor_fmt'] = formatar_moeda(dados['valor'])
@@ -495,26 +628,39 @@ def relatorio_historico_vendas():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
-    hoje = datetime.utcnow()
+    hoje = agora_brasil()
     ano = request.args.get('ano', hoje.year, type=int)
 
-    vendas = [v for v in Venda.query.filter_by(status='Confirmada').all()
-              if v.data_efetiva.year == ano]
+    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
+    vendedor_expr = func.coalesce(func.nullif(Venda.vendedor, ''),
+                                  func.nullif(Cliente.vendedor, ''),
+                                  'Sem vendedor')
+    cliente_expr = func.coalesce(func.nullif(Cliente.nome_fantasia, ''), Cliente.nome)
+    linhas = db.session.query(
+        vendedor_expr.label('vendedor'),
+        cliente_expr.label('cliente'),
+        func.extract('month', data_efetiva).label('mes'),
+        func.sum(Venda.valor_total).label('valor'),
+    ).select_from(Venda).join(Cliente, Venda.cliente_id == Cliente.id)\
+        .filter(Venda.status == 'Confirmada')\
+        .filter(func.extract('year', data_efetiva) == ano)\
+        .group_by(vendedor_expr, cliente_expr, func.extract('month', data_efetiva)).all()
 
     agrupado = {}
     totais_meses = [0.0] * 12
     total_geral = 0.0
-    for venda in vendas:
-        vendedor = venda.vendedor or venda.cliente.vendedor or 'Sem vendedor'
-        cliente = venda.cliente.nome_exibicao
-        mes = venda.data_efetiva.month
+    for linha in linhas:
+        vendedor = linha.vendedor
+        cliente = linha.cliente
+        mes = int(linha.mes)
+        valor = linha.valor or 0
         grupo = agrupado.setdefault(vendedor, {'clientes': {}, 'total': 0.0})
-        grupo['total'] += venda.valor_total
+        grupo['total'] += valor
         dados_cliente = grupo['clientes'].setdefault(cliente, {'meses': [0.0] * 12, 'total': 0.0})
-        dados_cliente['meses'][mes - 1] += venda.valor_total
-        dados_cliente['total'] += venda.valor_total
-        totais_meses[mes - 1] += venda.valor_total
-        total_geral += venda.valor_total
+        dados_cliente['meses'][mes - 1] += valor
+        dados_cliente['total'] += valor
+        totais_meses[mes - 1] += valor
+        total_geral += valor
 
     lista = []
     for vendedor, grupo in agrupado.items():
@@ -542,7 +688,7 @@ def confirmar_consignacao(id):
     venda = Venda.query.get_or_404(id)
     if venda.tipo == 'Consignado' and venda.status == 'Pendente':
         venda.status = 'Confirmada'
-        venda.data_confirmacao = datetime.utcnow()
+        venda.data_confirmacao = agora_brasil()
         db.session.commit()
         flash(f'Consignação #{venda.id} confirmada como venda!', 'sucesso')
         flash(montar_link_whatsapp_nf(venda), 'whatsapp_link')
@@ -568,7 +714,7 @@ def adiar_contato(id):
 
     cliente = Cliente.query.get_or_404(id)
     dias = int(request.form.get('dias', 1))
-    cliente.contato_adiado_ate = datetime.utcnow() + timedelta(days=dias)
+    cliente.contato_adiado_ate = agora_brasil() + timedelta(days=dias)
     cliente.contato_desconsiderado = False
     db.session.commit()
     flash(f'Lembrete de {cliente.nome} adiado.', 'sucesso')
@@ -599,7 +745,7 @@ def reativar_contato(id):
 
 @app.route('/vendedores', methods=['GET', 'POST'])
 def vendedores():
-    if not usuario_esta_logado() or session['usuario'] != 'admin':
+    if not is_admin():
         return redirect(url_for('login'))
 
     if request.method == 'POST':
@@ -627,7 +773,7 @@ def vendedores():
 
 @app.route('/vendedores/<int:id>/editar', methods=['POST'])
 def editar_vendedor(id):
-    if not usuario_esta_logado() or session['usuario'] != 'admin':
+    if not is_admin():
         return redirect(url_for('login'))
 
     vendedor = Vendedor.query.get_or_404(id)
@@ -665,7 +811,7 @@ def editar_vendedor(id):
 
 @app.route('/vendedores/<int:id>/excluir', methods=['POST'])
 def excluir_vendedor(id):
-    if not usuario_esta_logado() or session['usuario'] != 'admin':
+    if not is_admin():
         return redirect(url_for('login'))
 
     vendedor = Vendedor.query.get_or_404(id)
@@ -673,8 +819,10 @@ def excluir_vendedor(id):
     db.session.delete(vendedor)
     for cliente in Cliente.query.filter_by(vendedor=nome).all():
         cliente.vendedor = None
+        cliente.vendedor_id = None
     for venda in Venda.query.filter_by(vendedor=nome).all():
         venda.vendedor = None
+        venda.vendedor_id = None
     db.session.commit()
     flash(f'Vendedor "{nome}" excluído.', 'sucesso')
     return redirect(url_for('vendedores'))
@@ -702,7 +850,7 @@ def clientes():
         if data_cadastro_str:
             data_cadastro = datetime.strptime(data_cadastro_str, '%Y-%m-%d')
         else:
-            data_cadastro = datetime.utcnow()
+            data_cadastro = agora_brasil()
 
         novo_cliente = Cliente(
             nome=nome,
@@ -715,18 +863,18 @@ def clientes():
             telefone=telefone,
             email=email,
             contato=contato,
-            vendedor=vendedor,
             data_cadastro=data_cadastro,
             dias_aviso=dias_aviso,
             periodo_retorno=dias_aviso
         )
+        aplicar_vendedor_por_nome(novo_cliente, vendedor)
         db.session.add(novo_cliente)
         db.session.commit()
         flash('Cliente cadastrado com sucesso!', 'sucesso')
         return redirect(url_for('clientes'))
 
     todos_clientes = Cliente.query.all()
-    hoje_formatado = datetime.now().strftime('%Y-%m-%d')
+    hoje_formatado = agora_brasil().strftime('%Y-%m-%d')
     vendedores = Vendedor.query.order_by(Vendedor.nome).all()
     return render_template('clientes.html', clientes=todos_clientes, hoje=hoje_formatado, vendedores=vendedores)
 
@@ -748,7 +896,7 @@ def detalhe_cliente(id):
         cliente.telefone = request.form.get('telefone')
         cliente.email = request.form.get('email')
         cliente.contato = request.form.get('contato')
-        cliente.vendedor = request.form.get('vendedor')
+        aplicar_vendedor_por_nome(cliente, request.form.get('vendedor'))
         dias_aviso = int(request.form.get('dias_aviso', 30))
         cliente.dias_aviso = dias_aviso
         cliente.periodo_retorno = dias_aviso
@@ -773,26 +921,46 @@ def vendas():
 
 @app.route('/usuarios', methods=['GET', 'POST'])
 def usuarios():
-    if not usuario_esta_logado() or session['usuario'] != 'admin':
+    if not is_admin():
         flash('Acesso restrito apenas para o administrador!', 'erro')
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         novo_login = request.form.get('usuario')
         nova_senha = request.form.get('senha')
+        eh_admin = bool(request.form.get('admin'))
 
-        if Usuario.query.filter_by(login=novo_login).first():
+        if not novo_login or not nova_senha:
+            flash('Informe login e senha.', 'erro')
+        elif Usuario.query.filter_by(login=novo_login).first():
             flash('Esse nome de usuário já existe!', 'erro')
         else:
             senha_segura = generate_password_hash(nova_senha)
-            novo_user = Usuario(login=novo_login, senha=senha_segura, precisa_trocar_senha=True)
+            novo_user = Usuario(login=novo_login, senha=senha_segura,
+                                precisa_trocar_senha=True, admin=eh_admin)
             db.session.add(novo_user)
             db.session.commit()
             flash('Usuário criado com sucesso!', 'sucesso')
         return redirect(url_for('usuarios'))
 
     lista_usuarios = Usuario.query.all()
-    return render_template('usuarios.html', usuarios=lista_usuarios)
+    return render_template('usuarios.html', usuarios=lista_usuarios, usuario_atual_login=session['usuario'])
+
+@app.route('/usuarios/<int:id>/admin', methods=['POST'])
+def alternar_admin_usuario(id):
+    if not is_admin():
+        flash('Acesso restrito apenas para o administrador!', 'erro')
+        return redirect(url_for('dashboard'))
+
+    alvo = Usuario.query.get_or_404(id)
+    if alvo.login == session['usuario']:
+        flash('Você não pode remover o próprio acesso de administrador.', 'erro')
+        return redirect(url_for('usuarios'))
+
+    alvo.admin = not alvo.admin
+    db.session.commit()
+    flash(f'Papel de {alvo.login} atualizado.', 'sucesso')
+    return redirect(url_for('usuarios'))
 
 @app.route('/salvar_venda_multipla', methods=['POST'])
 def salvar_venda_multipla():
@@ -802,15 +970,18 @@ def salvar_venda_multipla():
     dados = request.get_json()
     cliente_id = dados.get('cliente_id')
     data_str = dados.get('data')
-    valor_total = dados.get('valor_total')
     itens = dados.get('itens')
     prazo_pagamento = dados.get('prazo_pagamento')
     tipo_venda = dados.get('tipo_venda', 'Normal')
     vendedor = dados.get('vendedor')
     emitir_nf = dados.get('emitir_nf', True)
 
-    data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
+    data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else agora_brasil()
     status_venda = 'Pendente' if tipo_venda == 'Consignado' else 'Confirmada'
+
+    itens_limpos, valor_total = validar_e_normalizar_itens(itens)
+    if itens_limpos is None:
+        return jsonify({"erro": valor_total}), 400
 
     try:
         nova_venda = Venda(
@@ -823,16 +994,17 @@ def salvar_venda_multipla():
             vendedor=vendedor,
             emitir_nf=bool(emitir_nf)
         )
+        aplicar_vendedor_por_nome(nova_venda, vendedor)
         db.session.add(nova_venda)
         db.session.flush()
 
-        for item in itens:
+        for item in itens_limpos:
             novo_item = ItemVenda(
                 venda_id=nova_venda.id,
                 produto=item['produto'],
-                quantidade=int(item['quantidade']),
-                valor_unitario=float(item['valor_unitario']),
-                valor_subtotal=float(item['valor_subtotal'])
+                quantidade=item['quantidade'],
+                valor_unitario=item['valor_unitario'],
+                valor_subtotal=item['valor_subtotal']
             )
             db.session.add(novo_item)
 
@@ -853,9 +1025,13 @@ def relatorio_vendas():
         return redirect(url_for('login'))
 
     pp = parametros_periodo()
-    vendas = [v for v in Venda.query.order_by(Venda.data.desc()).all()
-              if pp['data_inicio'] <= v.data <= pp['data_fim']]
-    return render_template('detalhe_vendas.html', vendas=vendas, **pp)
+    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
+    pagina = request.args.get('pagina', 1, type=int)
+    consulta = Venda.query.filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))\
+        .order_by(Venda.data.desc())
+    paginacao = consulta.paginate(page=pagina, per_page=25, error_out=False)
+    return render_template('detalhe_vendas.html', vendas=paginacao.items,
+                           paginacao=paginacao, **pp)
 
 @app.route('/venda/detalhar/<int:id>')
 def detalhar_venda(id):
@@ -868,7 +1044,7 @@ def detalhar_venda(id):
 
     itens = venda.itens
     return render_template('detalhe_vendas.html', venda=venda, itens=itens, modo_visualizacao=True,
-                           hoje=datetime.utcnow())
+                           hoje=agora_brasil())
 
 @app.route('/vendas/<int:id>/duplicar')
 def duplicar_venda(id):
@@ -917,8 +1093,9 @@ def editar_venda(id):
         itens = dados.get('itens')
         emitir_nf = dados.get('emitir_nf', venda.emitir_nf)
 
-        if not itens:
-            return jsonify({"erro": "A venda precisa ter pelo menos um item."}), 400
+        itens_limpos, valor_total = validar_e_normalizar_itens(itens)
+        if itens_limpos is None:
+            return jsonify({"erro": valor_total}), 400
 
         data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else venda.data
 
@@ -927,9 +1104,9 @@ def editar_venda(id):
         venda.prazo_pagamento = prazo_pagamento
         venda.tipo = tipo_venda
         venda.status = status
-        venda.vendedor = vendedor
         venda.emitir_nf = bool(emitir_nf)
-        venda.valor_total = sum(float(i['valor_subtotal']) for i in itens)
+        venda.valor_total = valor_total
+        aplicar_vendedor_por_nome(venda, vendedor)
 
         if status == 'Confirmada':
             if not venda.data_confirmacao:
@@ -990,7 +1167,7 @@ def marcar_venda_paga(id):
         if data_pagamento_str:
             venda.data_pagamento = datetime.strptime(data_pagamento_str, '%Y-%m-%d')
         else:
-            venda.data_pagamento = datetime.utcnow()
+            venda.data_pagamento = agora_brasil()
         venda.paga = True
         flash(f'Venda #{id} marcada como paga!', 'sucesso')
     db.session.commit()
@@ -1005,21 +1182,24 @@ def relatorio_comissao():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
-    hoje = datetime.utcnow()
+    hoje = agora_brasil()
     pp = parametros_periodo()
     vendedor_filtro = request.args.get('vendedor', '')
 
-    vendas_pagas = [v for v in Venda.query.filter_by(paga=True).all()
-                    if v.data_pagamento and pp['data_inicio'] <= v.data_pagamento <= pp['data_fim']]
-
+    consulta = Venda.query.filter(
+        Venda.paga.is_(True),
+        Venda.data_pagamento.isnot(None),
+        Venda.data_pagamento.between(pp['data_inicio'], pp['data_fim']),
+    )
     if vendedor_filtro:
-        vendas_pagas = [v for v in vendas_pagas if (v.vendedor or '') == vendedor_filtro]
+        consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
+    vendas_pagas = consulta.order_by(Venda.data_pagamento.desc()).all()
 
+    pct_por_vendedor = {v.nome: v.comissao_pct for v in Vendedor.query.all()}
     resumo = {}
     for venda in vendas_pagas:
         nome_vendedor = venda.vendedor or 'Sem vendedor'
-        vend = Vendedor.query.filter_by(nome=venda.vendedor).first() if venda.vendedor else None
-        pct = vend.comissao_pct if vend else 0
+        pct = pct_por_vendedor.get(venda.vendedor, 0) if venda.vendedor else 0
         venda.comissao_valor = round(venda.valor_total * pct / 100, 2) if pct else 0.0
         if nome_vendedor not in resumo:
             resumo[nome_vendedor] = {'qtd': 0, 'total': 0.0, 'pct': pct}
@@ -1031,7 +1211,6 @@ def relatorio_comissao():
         dados['total_fmt'] = formatar_moeda(dados['total'])
         dados['comissao_fmt'] = formatar_moeda(dados['comissao'])
 
-    vendas_pagas.sort(key=lambda v: v.data_pagamento or v.data, reverse=True)
     vendedores = Vendedor.query.order_by(Vendedor.nome).all()
     return render_template('comissao_vendedores.html',
                            vendedor_filtro=vendedor_filtro,
@@ -1043,8 +1222,12 @@ TIPOS_HISTORICO = ['WhatsApp', 'Telefone', 'E-mail', 'Amostra', 'Visita', 'Negoc
 def prospeccoes_com_acao_vencida():
     """Prospecções ativas cuja próxima ação já chegou, da mais urgente para a menos."""
     agora = agora_brasil()
-    vencidas = [p for p in Prospeccao.query.all()
-                if p.ativa and p.proxima_acao_dt and p.proxima_acao_dt <= agora]
+    candidatos = Prospeccao.query.filter(
+        Prospeccao.status.in_(Prospeccao.STATUS_ATIVOS),
+        Prospeccao.proxima_acao_data.isnot(None),
+        Prospeccao.proxima_acao_data <= agora,
+    ).all()
+    vencidas = [p for p in candidatos if p.proxima_acao_dt and p.proxima_acao_dt <= agora]
     vencidas.sort(key=lambda p: p.proxima_acao_dt)
     return vencidas
 
@@ -1114,7 +1297,7 @@ def prospeccoes():
             vendedor=vendedor,
             observacoes=observacoes,
             status=status,
-            data_cadastro=datetime.utcnow(),
+            data_cadastro=agora_brasil(),
             proxima_acao_data=proxima_data,
             proxima_acao_hora=proxima_hora or None,
             proxima_acao_descricao=proxima_descricao,
@@ -1191,7 +1374,7 @@ def adicionar_historico(id):
         flash('Descreva a ação realizada.', 'erro')
         return redirect(url_for('detalhe_prospeccao', id=prospeccao.id))
 
-    data = datetime.strptime(data_str, '%Y-%m-%d') if data_str else datetime.utcnow()
+    data = datetime.strptime(data_str, '%Y-%m-%d') if data_str else agora_brasil()
 
     novo = HistoricoProspeccao(
         prospeccao_id=prospeccao.id,
@@ -1231,7 +1414,7 @@ def converter_prospeccao(id):
         telefone=prospeccao.telefone,
         contato=prospeccao.contato,
         vendedor=prospeccao.vendedor,
-        data_cadastro=datetime.utcnow(),
+        data_cadastro=agora_brasil(),
         dias_aviso=30,
         periodo_retorno=30,
     )
@@ -1270,7 +1453,10 @@ def iniciar_agendador_backups():
 
     No Flask em modo debug, o reloader roda o módulo duas vezes; o WERKZEUG_RUN_MAIN
     garante que o agendador só inicie no processo real. No gunicorn (Render) o módulo
-    roda uma vez por worker, e o padrão é um único worker."""
+    roda uma vez por worker, e o padrão é um único worker.
+    A variável PETCRM_DISABLE_BACKGROUND desliga o agendador (usada em testes e CLI)."""
+    if os.environ.get('PETCRM_DISABLE_BACKGROUND'):
+        return
     if app.debug and os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
         return
     agendador = BackgroundScheduler(timezone='America/Sao_Paulo')
@@ -1282,7 +1468,7 @@ iniciar_agendador_backups()
 
 @app.route('/backups', methods=['GET', 'POST'])
 def backups():
-    if not usuario_esta_logado() or session['usuario'] != 'admin':
+    if not is_admin():
         return redirect(url_for('login'))
 
     if request.method == 'POST':
@@ -1299,7 +1485,7 @@ def backups():
 
 @app.route('/backups/<path:nome>/baixar')
 def baixar_backup(nome):
-    if not usuario_esta_logado() or session['usuario'] != 'admin':
+    if not is_admin():
         return redirect(url_for('login'))
 
     caminho = (backup_mod.BACKUP_DIR / nome).resolve()
@@ -1311,7 +1497,7 @@ def baixar_backup(nome):
 
 @app.route('/backups/<path:nome>/excluir', methods=['POST'])
 def excluir_backup(nome):
-    if not usuario_esta_logado() or session['usuario'] != 'admin':
+    if not is_admin():
         return redirect(url_for('login'))
 
     caminho = (backup_mod.BACKUP_DIR / nome).resolve()

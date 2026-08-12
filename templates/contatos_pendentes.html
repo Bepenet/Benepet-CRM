@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contatos Pendentes - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -81,7 +82,7 @@
             <a href="/dashboard" class="menu-link">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
-            {% if session['usuario'] == 'admin' %}
+            {% if is_admin %}
             <a href="/vendedores" class="menu-link">👤 Vendedores</a>
             {% endif %}
             <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
@@ -132,19 +133,19 @@
                                 <a class="btn-whats" target="_blank" href="https://wa.me/55{{ c.telefone|replace('(', '')|replace(')', '')|replace(' ', '')|replace('-', '') }}">WhatsApp</a>
                                 {% endif %}
 
-                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST">
+                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="dias" value="1">
                                     <button type="submit" class="btn-adiar" title="Lembrar novamente em 1 dia">+1 dia</button>
                                 </form>
-                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST">
+                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="dias" value="7">
                                     <button type="submit" class="btn-adiar" title="Lembrar novamente em 1 semana">+1 semana</button>
                                 </form>
-                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST">
+                                <form class="inline" action="/clientes/{{ c.id }}/adiar_contato" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="dias" value="30">
                                     <button type="submit" class="btn-adiar" title="Lembrar novamente em 1 mês">+1 mês</button>
                                 </form>
-                                <form class="inline" action="/clientes/{{ c.id }}/desconsiderar_contato" method="POST" onsubmit="return confirm('Desconsiderar esse lembrete permanentemente? Você pode reativar depois na seção abaixo.');">
+                                <form class="inline" action="/clientes/{{ c.id }}/desconsiderar_contato" method="POST" onsubmit="return confirm('Desconsiderar esse lembrete permanentemente? Você pode reativar depois na seção abaixo.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-desconsiderar" title="Não lembrar mais deste cliente">Desconsiderar</button>
                                 </form>
                             </div>
@@ -178,7 +179,7 @@
                         <td>{{ c.telefone or '-' }}</td>
                         <td><span class="badge-cinza">Desconsiderado</span></td>
                         <td>
-                            <form class="inline" action="/clientes/{{ c.id }}/reativar_contato" method="POST">
+                            <form class="inline" action="/clientes/{{ c.id }}/reativar_contato" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn-reativar">Reativar lembrete</button>
                             </form>
                         </td>

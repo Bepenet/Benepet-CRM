@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciamento de Usuários - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -20,7 +21,7 @@
             {% endif %}
         {% endwith %}
         
-        <form method="POST" action="/usuarios" style="background:#f8f9fa; padding:20px; border-radius:8px; margin-bottom:30px;">
+        <form method="POST" action="/usuarios" style="background:#f8f9fa; padding:20px; border-radius:8px; margin-bottom:30px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <h3>Criar Novo Acesso</h3>
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:15px;">
                 <div>
@@ -32,6 +33,10 @@
                     <input type="password" name="senha" placeholder="Senha do usuário" required style="width:100%; padding:8px; box-sizing:border-box;">
                 </div>
             </div>
+            <label style="display:flex; align-items:center; gap:8px; margin-bottom:15px; cursor:pointer;">
+                <input type="checkbox" name="admin" value="1">
+                <span>Administrador (acesso a vendedores, backups e usuários)</span>
+            </label>
             <button type="submit" style="background:#8e44ad; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-weight:bold;">Adicionar Usuário</button>
         </form>
 
@@ -41,13 +46,34 @@
                 <tr style="background:#e9ecef; text-align:left;">
                     <th style="padding:10px; border-bottom: 2px solid #ddd;">ID</th>
                     <th style="padding:10px; border-bottom: 2px solid #ddd;">Usuário / Login</th>
+                    <th style="padding:10px; border-bottom: 2px solid #ddd;">Papel</th>
+                    <th style="padding:10px; border-bottom: 2px solid #ddd;">Ação</th>
                 </tr>
             </thead>
             <tbody>
                 {% for u in usuarios %}
                 <tr style="border-bottom:1px solid #ddd;">
                     <td style="padding:10px;">{{ u.id }}</td>
-                    <td style="padding:10px; font-weight:bold;">{{ u.login }}</td>
+                    <td style="padding:10px; font-weight:bold;">{{ u.login }}{% if u.login == usuario_atual_login %} (você){% endif %}</td>
+                    <td style="padding:10px;">
+                        {% if u.admin %}
+                        <span style="background:#eef2ff; color:#4338ca; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:bold;">Admin</span>
+                        {% else %}
+                        <span style="background:#f1f5f9; color:#64748b; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:bold;">Usuário</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:10px;">
+                        {% if u.login != usuario_atual_login %}
+                        <form action="/usuarios/{{ u.id }}/admin" method="POST" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="background:none; border:none; color:#3498db; cursor:pointer; font-size:13px; font-weight:bold;">
+                                {{ 'Remover admin' if u.admin else 'Tornar admin' }}
+                            </button>
+                        </form>
+                        {% else %}
+                        <span style="color:#94a3b8; font-size:12px;">—</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

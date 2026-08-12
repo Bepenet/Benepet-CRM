@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vendedores - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background-color: #f4f6f9; display: flex; }
@@ -75,7 +76,7 @@
             <a href="/dashboard" class="menu-link">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link">👥 Clientes</a>
-            {% if session['usuario'] == 'admin' %}
+            {% if is_admin %}
             <a href="/vendedores" class="menu-link active">👤 Vendedores</a>
             {% endif %}
             <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
@@ -100,7 +101,7 @@
 
         <div class="form-container">
             <h3 id="titulo-formulario"><i class="fa-solid fa-user-tie" style="color: #3498db;"></i> Novo Vendedor</h3>
-            <form id="form-vendedor" action="/vendedores" method="POST">
+            <form id="form-vendedor" action="/vendedores" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="nome">Nome do Vendedor *</label>
@@ -175,7 +176,7 @@
                     <td>
                         <a href="#" class="btn-editar" onclick="editarVendedor({{ v.id }}, {{ v.nome|tojson }}, {{ v.telefone|tojson or 'null' }}, {{ v.email|tojson or 'null' }}, {{ v.endereco|tojson or 'null' }}, {{ v.cep|tojson or 'null' }}, {{ v.cidade|tojson or 'null' }}, {{ v.uf|tojson or 'null' }}, {{ v.comissao_pct or 0 }})">Editar</a>
                         <span class="separador">/</span>
-                        <form action="/vendedores/{{ v.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir o vendedor "{{ v.nome }}"?');">
+                        <form action="/vendedores/{{ v.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir o vendedor "{{ v.nome }}"?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-excluir" style="background:none; border:none; padding:0; font-size:14px; cursor:pointer;">Excluir</button>
                         </form>
                     </td>
@@ -193,7 +194,7 @@
     <script src="/static/cidades.js" charset="utf-8"></script>
     <script src="/static/cep_cidades.js"></script>
     <script>
-        if ("{{ session['usuario'] }}" === 'admin') {
+        if ({{ 'true' if is_admin else 'false' }}) {
             document.getElementById('btn-admin').style.display = 'flex';
         }
         function alternarMenu() {

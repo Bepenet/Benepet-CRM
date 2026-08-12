@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clientes - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background-color: #f4f6f9; display: flex; }
@@ -71,7 +72,7 @@
             <a href="/dashboard" class="menu-link">📊 Dashboard</a>
             <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
             <a href="/clientes" class="menu-link active">👥 Clientes</a>
-            {% if session['usuario'] == 'admin' %}
+            {% if is_admin %}
             <a href="/vendedores" class="menu-link">👤 Vendedores</a>
             {% endif %}
             <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
@@ -96,7 +97,7 @@
 
         <div class="form-container">
             <h3><i class="fa-solid fa-user-plus" style="color: #3498db;"></i> Novo Cadastro</h3>
-            <form action="/clientes" method="POST">
+            <form action="/clientes" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="nome">Razão Social *</label>
@@ -224,7 +225,7 @@
     <script src="/static/cidades.js" charset="utf-8"></script>
     <script src="/static/cep_cidades.js"></script>
     <script>
-    if ("{{ session['usuario'] }}" === 'admin') {
+    if ({{ 'true' if is_admin else 'false' }}) {
         document.getElementById('btn-admin').style.display = 'flex';
     }
     function alternarMenu() {

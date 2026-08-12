@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Backups - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f6f9; color: #333; display: flex; justify-content: flex-start; padding-left: 260px; min-height: 100vh; }
@@ -89,7 +90,7 @@
             (computador ou nuvem).
         </div>
 
-        <form action="/backups" method="POST" onsubmit="return confirm('Criar um novo backup agora?');">
+        <form action="/backups" method="POST" onsubmit="return confirm('Criar um novo backup agora?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn-backup">📥 Criar Backup Agora</button>
         </form>
 
@@ -112,7 +113,7 @@
                     <td>
                         <a href="/backups/{{ b.nome }}/baixar" class="btn-baixar">Baixar</a>
                         <span class="separador">/</span>
-                        <form action="/backups/{{ b.nome }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir o backup {{ b.nome }}?');">
+                        <form action="/backups/{{ b.nome }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir o backup {{ b.nome }}?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn-excluir">Excluir</button>
                         </form>
                     </td>

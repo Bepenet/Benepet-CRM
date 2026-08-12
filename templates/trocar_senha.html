@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trocar Senha - BenePet CRM</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         @media (max-width: 420px) {
@@ -109,7 +110,7 @@
             {% endif %}
         {% endwith %}
 
-        <form action="/trocar-senha" method="POST" class="login-form">
+        <form action="/trocar-senha" method="POST" class="login-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="password" name="nova_senha" placeholder="Nova senha" required autofocus minlength="4">
             <input type="password" name="confirmar_senha" placeholder="Confirmar nova senha" required minlength="4">
             <button type="submit">Salvar Nova Senha</button>

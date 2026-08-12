@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relatório de Vendas - CRM Benepet</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='imprimir.css') }}">
     <style>
@@ -156,7 +157,7 @@
             <div style="text-align: right; margin-top: -45px; margin-bottom: 10px;">
                 <a href="/vendas/{{ venda.id }}/editar" class="btn-editar" style="margin-right: 15px;">Editar Venda</a>
                 <a href="/vendas/{{ venda.id }}/duplicar" class="btn-duplicar" style="margin-right: 15px;">🔁 Duplicar Venda</a>
-                <form action="/vendas/{{ venda.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir a venda #{{ venda.id }}? Essa ação não pode ser desfeita.');">
+                <form action="/vendas/{{ venda.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir a venda #{{ venda.id }}? Essa ação não pode ser desfeita.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn-excluir">Excluir Venda</button>
                 </form>
             </div>
@@ -176,12 +177,12 @@
                     {% endif %}
                 </p>
                 {% if venda.paga %}
-                    <form action="/vendas/{{ venda.id }}/marcar_paga" method="POST" style="display:inline;" onsubmit="return confirm('Reverter o pagamento da venda #{{ venda.id }}?');">
+                    <form action="/vendas/{{ venda.id }}/marcar_paga" method="POST" style="display:inline;" onsubmit="return confirm('Reverter o pagamento da venda #{{ venda.id }}?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="desfazer" value="1">
                         <button type="submit" class="btn-excluir" style="font-size: 13px; font-weight: 500;">↩ Reverter pagamento</button>
                     </form>
                 {% else %}
-                    <form action="/vendas/{{ venda.id }}/marcar_paga" method="POST" style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;">
+                    <form action="/vendas/{{ venda.id }}/marcar_paga" method="POST" style="display:flex; align-items:center; gap: 10px; flex-wrap: wrap;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <label for="data_pagamento" style="font-size: 14px; font-weight: 600; color: #333;">Data do pagamento:</label>
                         <input type="date" id="data_pagamento" name="data_pagamento" value="{{ hoje.strftime('%Y-%m-%d') }}" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                         <button type="submit" class="btn-ver" style="background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: underline; padding: 0;">✓ Marcar como pago</button>
@@ -256,7 +257,7 @@
                         </td>
                         <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
                         <td>
-                            <a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar</a><span class="separador-acoes">/</span><a href="/vendas/{{ venda.id }}/editar" class="btn-editar">Editar</a><span class="separador-acoes">/</span><a href="/vendas/{{ venda.id }}/duplicar" class="btn-duplicar">Duplicar</a><span class="separador-acoes">/</span><form action="/vendas/{{ venda.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir a venda #{{ venda.id }}? Essa ação não pode ser desfeita.');"><button type="submit" class="btn-excluir">Excluir</button></form>
+                            <a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar</a><span class="separador-acoes">/</span><a href="/vendas/{{ venda.id }}/editar" class="btn-editar">Editar</a><span class="separador-acoes">/</span><a href="/vendas/{{ venda.id }}/duplicar" class="btn-duplicar">Duplicar</a><span class="separador-acoes">/</span><form action="/vendas/{{ venda.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir a venda #{{ venda.id }}? Essa ação não pode ser desfeita.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn-excluir">Excluir</button></form>
                         </td>
                     </tr>
                     {% else %}
@@ -267,6 +268,19 @@
                 </tbody>
             </table>
             </div>
+
+            {% if paginacao and paginacao.pages > 1 %}
+            <div style="display: flex; justify-content: center; gap: 14px; margin-top: 20px; align-items: center; flex-wrap: wrap;">
+                {% set args = request.args.to_dict() %}
+                {% if paginacao.has_prev %}
+                <a href="{{ url_for('relatorio_vendas', **dict(args, pagina=paginacao.prev_num)) }}" class="btn-filtrar" style="text-decoration: none;">← Anterior</a>
+                {% endif %}
+                <span style="font-size: 14px; color: #333;">Página {{ paginacao.page }} de {{ paginacao.pages }} ({{ paginacao.total }} vendas)</span>
+                {% if paginacao.has_next %}
+                <a href="{{ url_for('relatorio_vendas', **dict(args, pagina=paginacao.next_num)) }}" class="btn-filtrar" style="text-decoration: none;">Próxima →</a>
+                {% endif %}
+            </div>
+            {% endif %}
         {% endif %}
     </div>
     <script>
