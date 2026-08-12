@@ -123,10 +123,80 @@ def test_relatorio_vendas_por_vendedor(client, app):
                              status='Confirmada', vendedor='Joao', vendedor_id=joao))
         db.session.commit()
 
-    resp = client.get('/relatorios/vendas-por-vendedor')
+    resp = client.get('/relatorios?relatorio=vendas_por_vendedor')
     assert resp.status_code == 200
     assert b'Maria' in resp.data
     assert b'Joao' in resp.data
+
+
+def test_relatorios_rota_antiga_redireciona(client):
+    login(client)
+    resp = client.get('/relatorios/vendas-por-vendedor')
+    assert resp.status_code == 302
+    assert '/relatorios?relatorio=vendas_por_vendedor' in resp.headers.get('Location', '')
+    resp = client.get('/vendas/relatorio')
+    assert resp.status_code == 302
+    assert 'relatorio=historico_vendas' in resp.headers.get('Location', '')
+
+
+def test_relatorios_pagina_unica_lista_tipos(client):
+    login(client)
+    resp = client.get('/relatorios')
+    assert resp.status_code == 200
+    assert b'relatorio' in resp.data
+    assert b'vendas_por_vendedor' in resp.data
+    assert b'vendas_por_cliente' in resp.data
+    assert b'proximo_contato' in resp.data
+
+
+def test_relatorios_historico_vendas_com_venda(client, app):
+    login(client)
+    c = criar_cliente('Pet Shop Teste')
+    with app.app_context():
+        db.session.add(Venda(cliente_id=c, data=agora_brasil(), valor_total=10.0,
+                             status='Confirmada', emitir_nf=True))
+        db.session.commit()
+
+    resp = client.get('/relatorios?relatorio=historico_vendas')
+    assert resp.status_code == 200
+    assert b'Pet Shop Teste' in resp.data
+    assert b'R$ 10.00' in resp.data
+
+
+def test_relatorios_vendas_por_cliente_requer_selecao(client, app):
+    login(client)
+    c = criar_cliente('Pet Shop Teste')
+    resp = client.get('/relatorios?relatorio=vendas_por_cliente')
+    assert resp.status_code == 200
+    assert b'Selecione um cliente' in resp.data
+
+    resp = client.get(f'/relatorios?relatorio=vendas_por_cliente&cliente_id={c}')
+    assert resp.status_code == 200
+    assert b'Pet Shop Teste' in resp.data
+
+
+def test_relatorios_proximo_contato(client, app):
+    login(client)
+    with app.app_context():
+        db.session.add(Cliente(nome='Cliente Antigo', data_cadastro=agora_brasil(),
+                               dias_aviso=30, periodo_retorno=30))
+        db.session.commit()
+
+    resp = client.get('/relatorios?relatorio=proximo_contato')
+    assert resp.status_code == 200
+    assert b'Cliente Antigo' in resp.data
+
+
+def test_relatorios_comissao(client, app):
+    login(client)
+    with app.app_context():
+        db.session.add(Venda(cliente_id=criar_cliente(), data=agora_brasil(), valor_total=100.0,
+                             status='Confirmada', paga=True, data_pagamento=agora_brasil()))
+        db.session.commit()
+
+    resp = client.get('/relatorios?relatorio=comissao')
+    assert resp.status_code == 200
+    assert b'Boletos Pagos' in resp.data
 
 
 def test_mensagem_whatsapp_item_com_unidade_e_preco(client, app):

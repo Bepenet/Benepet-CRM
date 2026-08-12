@@ -515,164 +515,223 @@ def dashboard():
 def relatorios():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-    return render_template('relatorios.html')
+
+    tipos_validos = {
+        'historico_vendas': 'Histórico de Vendas',
+        'vendas_por_vendedor': 'Vendas por Vendedor',
+        'vendas_por_cliente': 'Vendas por Cliente',
+        'vendas_por_mes': 'Vendas por Mês',
+        'comissao': 'Comissão de Vendedores',
+        'historico_matriz': 'Histórico de Vendas (Matriz)',
+        'proximo_contato': 'Próximo Contato',
+    }
+    tipo = request.args.get('relatorio', 'historico_vendas')
+    if tipo not in tipos_validos:
+        tipo = 'historico_vendas'
+
+    vendedor_filtro = request.args.get('vendedor', '')
+    cliente_id = request.args.get('cliente_id', type=int)
+
+    vendedores = Vendedor.query.order_by(Vendedor.nome).all()
+    clientes = Cliente.query.order_by(Cliente.nome).all()
+
+    pp = parametros_periodo()
+    contexto = {
+        'tipo': tipo,
+        'tipos_validos': tipos_validos,
+        'vendedor_filtro': vendedor_filtro,
+        'vendedores': vendedores,
+        'clientes': clientes,
+        'cliente_id': cliente_id,
+        'cliente_selecionado': Cliente.query.get(cliente_id) if cliente_id else None,
+    }
+    contexto.update(pp)
+
+    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
+
+    if tipo == 'proximo_contato':
+        todos_clientes = Cliente.query.all()
+        contexto['clientes_contato'] = sorted(todos_clientes, key=lambda c: c.proximo_contato)
+        return render_template('relatorios.html', **contexto)
+
+    if tipo == 'historico_vendas':
+        pagina = request.args.get('pagina', 1, type=int)
+        consulta = Venda.query.filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))
+        if vendedor_filtro:
+            consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
+        consulta = consulta.order_by(Venda.data.desc())
+        contexto['paginacao'] = consulta.paginate(page=pagina, per_page=25, error_out=False)
+
+    elif tipo == 'vendas_por_vendedor':
+        vendedor_expr = func.coalesce(func.nullif(Venda.vendedor, ''),
+                                      func.nullif(Cliente.vendedor, ''),
+                                      'Sem vendedor definido')
+        consulta = db.session.query(
+            vendedor_expr.label('vendedor'),
+            func.count().label('quantidade_vendas'),
+            func.sum(Venda.valor_total).label('valor'),
+        ).select_from(Venda).join(Cliente, Venda.cliente_id == Cliente.id)\
+            .filter(Venda.status == 'Confirmada')\
+            .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))
+        if vendedor_filtro:
+            consulta = consulta.filter(vendedor_expr == vendedor_filtro)
+        linhas = consulta.group_by(vendedor_expr)\
+            .order_by(func.sum(Venda.valor_total).desc()).all()
+
+        totais = {}
+        for linha in linhas:
+            totais[linha.vendedor] = {
+                'quantidade_vendas': linha.quantidade_vendas,
+                'valor': linha.valor or 0,
+            }
+        for dados in totais.values():
+            dados['valor_fmt'] = formatar_moeda(dados['valor'])
+        contexto['vendedores_resumo'] = sorted(totais.items(),
+                                               key=lambda item: item[1]['valor'], reverse=True)
+
+    elif tipo == 'vendas_por_cliente':
+        cliente = contexto['cliente_selecionado']
+        contexto['vendas_cliente'] = []
+        contexto['total_vendas'] = 0
+        contexto['valor_total_fmt'] = formatar_moeda(0)
+        if cliente:
+            consulta = Venda.query.filter(Venda.cliente_id == cliente.id)\
+                .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))
+            if vendedor_filtro:
+                consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
+            vendas = consulta.order_by(Venda.data.desc()).all()
+            contexto['vendas_cliente'] = vendas
+            contexto['total_vendas'] = len(vendas)
+            contexto['valor_total_fmt'] = formatar_moeda(sum(v.valor_total for v in vendas))
+
+    elif tipo == 'vendas_por_mes':
+        meses_pt = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+        ano_expr = func.extract('year', data_efetiva)
+        mes_expr = func.extract('month', data_efetiva)
+        consulta = db.session.query(
+            ano_expr.label('ano'),
+            mes_expr.label('mes'),
+            func.count().label('quantidade_vendas'),
+            func.sum(Venda.valor_total).label('valor'),
+        ).filter(Venda.status == 'Confirmada')\
+            .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))
+        if vendedor_filtro:
+            consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
+        linhas = consulta.group_by(ano_expr, mes_expr)\
+            .order_by(ano_expr.desc(), mes_expr.desc()).all()
+
+        totais = {}
+        for linha in linhas:
+            chave = (int(linha.ano), int(linha.mes))
+            totais[chave] = {'quantidade_vendas': linha.quantidade_vendas, 'valor': linha.valor or 0}
+        for chave, dados in totais.items():
+            dados['valor_fmt'] = formatar_moeda(dados['valor'])
+            dados['label'] = f"{meses_pt[chave[1]]}/{chave[0]}"
+        contexto['meses_resumo'] = sorted(totais.items(), key=lambda item: item[0], reverse=True)
+
+    elif tipo == 'comissao':
+        consulta = Venda.query.filter(
+            Venda.paga.is_(True),
+            Venda.data_pagamento.isnot(None),
+            Venda.data_pagamento.between(pp['data_inicio'], pp['data_fim']),
+        )
+        if vendedor_filtro:
+            consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
+        vendas_pagas = consulta.order_by(Venda.data_pagamento.desc()).all()
+
+        pct_por_vendedor = {v.nome: v.comissao_pct for v in Vendedor.query.all()}
+        resumo = {}
+        for venda in vendas_pagas:
+            nome_vendedor = venda.vendedor or 'Sem vendedor'
+            pct = pct_por_vendedor.get(venda.vendedor, 0) if venda.vendedor else 0
+            venda.comissao_valor = round(venda.valor_total * pct / 100, 2) if pct else 0.0
+            if nome_vendedor not in resumo:
+                resumo[nome_vendedor] = {'qtd': 0, 'total': 0.0, 'pct': pct}
+            resumo[nome_vendedor]['qtd'] += 1
+            resumo[nome_vendedor]['total'] += venda.valor_total
+            resumo[nome_vendedor]['comissao'] = resumo[nome_vendedor].get('comissao', 0.0) + venda.comissao_valor
+        for dados in resumo.values():
+            dados['total_fmt'] = formatar_moeda(dados['total'])
+            dados['comissao_fmt'] = formatar_moeda(dados['comissao'])
+        contexto['resumo_comissao'] = resumo
+        contexto['vendas_pagas'] = vendas_pagas
+
+    elif tipo == 'historico_matriz':
+        ano = pp['ano']
+        vendedor_expr = func.coalesce(func.nullif(Venda.vendedor, ''),
+                                      func.nullif(Cliente.vendedor, ''),
+                                      'Sem vendedor')
+        cliente_expr = func.coalesce(func.nullif(Cliente.nome_fantasia, ''), Cliente.nome)
+        consulta = db.session.query(
+            vendedor_expr.label('vendedor'),
+            cliente_expr.label('cliente'),
+            func.extract('month', data_efetiva).label('mes'),
+            func.sum(Venda.valor_total).label('valor'),
+        ).select_from(Venda).join(Cliente, Venda.cliente_id == Cliente.id)\
+            .filter(Venda.status == 'Confirmada')\
+            .filter(func.extract('year', data_efetiva) == ano)
+        if vendedor_filtro:
+            consulta = consulta.filter(vendedor_expr == vendedor_filtro)
+        linhas = consulta.group_by(vendedor_expr, cliente_expr, func.extract('month', data_efetiva)).all()
+
+        agrupado = {}
+        totais_meses = [0.0] * 12
+        total_geral = 0.0
+        for linha in linhas:
+            vendedor = linha.vendedor
+            cliente = linha.cliente
+            mes = int(linha.mes)
+            valor = linha.valor or 0
+            grupo = agrupado.setdefault(vendedor, {'clientes': {}, 'total': 0.0})
+            grupo['total'] += valor
+            dados_cliente = grupo['clientes'].setdefault(cliente, {'meses': [0.0] * 12, 'total': 0.0})
+            dados_cliente['meses'][mes - 1] += valor
+            dados_cliente['total'] += valor
+            totais_meses[mes - 1] += valor
+            total_geral += valor
+
+        lista = []
+        for vendedor, grupo in agrupado.items():
+            clientes_g = sorted(grupo['clientes'].items(), key=lambda item: item[1]['total'], reverse=True)
+            lista.append({'vendedor': vendedor, 'total': grupo['total'], 'clientes': clientes_g})
+        lista.sort(key=lambda g: g['total'], reverse=True)
+
+        contexto['grupos_matriz'] = lista
+        contexto['totais_meses'] = totais_meses
+        contexto['total_geral'] = total_geral
+
+    return render_template('relatorios.html', **contexto)
 
 @app.route('/relatorios/proximo-contato')
 def relatorio_proximo_contato():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-
-    todos_clientes = Cliente.query.all()
-    clientes = sorted(todos_clientes, key=lambda c: c.proximo_contato)
-    return render_template('relatorio_proximo_contato.html', clientes=clientes)
+    return redirect(url_for('relatorios', relatorio='proximo_contato'))
 
 @app.route('/relatorios/vendas-por-vendedor')
 def relatorio_vendas_por_vendedor():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-
-    pp = parametros_periodo()
-    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
-    vendedor_expr = func.coalesce(func.nullif(Venda.vendedor, ''),
-                                  func.nullif(Cliente.vendedor, ''),
-                                  'Sem vendedor definido')
-    linhas = db.session.query(
-        vendedor_expr.label('vendedor'),
-        func.count().label('quantidade_vendas'),
-        func.sum(Venda.valor_total).label('valor'),
-    ).select_from(Venda).join(Cliente, Venda.cliente_id == Cliente.id)\
-        .filter(Venda.status == 'Confirmada')\
-        .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))\
-        .group_by(vendedor_expr)\
-        .order_by(func.sum(Venda.valor_total).desc()).all()
-
-    totais = {}
-    for linha in linhas:
-        totais[linha.vendedor] = {
-            'quantidade_vendas': linha.quantidade_vendas,
-            'valor': linha.valor or 0,
-        }
-
-    for vendedor, dados in totais.items():
-        dados['valor_fmt'] = formatar_moeda(dados['valor'])
-
-    resultado = sorted(totais.items(), key=lambda item: item[1]['valor'], reverse=True)
-    return render_template('relatorio_vendas_vendedor.html', vendedores=resultado, **pp)
+    return redirect(url_for('relatorios', relatorio='vendas_por_vendedor'))
 
 @app.route('/relatorios/vendas-por-cliente')
 def relatorio_vendas_por_cliente():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-
-    pp = parametros_periodo()
-    clientes = Cliente.query.order_by(Cliente.nome).all()
-    cliente_selecionado = None
-    vendas = []
-    total_vendas = 0
-    valor_total = 0
-
-    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
-
-    cliente_id = request.args.get('cliente_id', type=int)
-    if cliente_id:
-        cliente_selecionado = Cliente.query.get(cliente_id)
-        if cliente_selecionado:
-            vendas = Venda.query.filter(Venda.cliente_id == cliente_selecionado.id)\
-                .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))\
-                .order_by(Venda.data.desc()).all()
-            total_vendas = len(vendas)
-            valor_total = sum(v.valor_total for v in vendas)
-
-    return render_template('relatorio_vendas_cliente.html',
-                           clientes=clientes,
-                           cliente=cliente_selecionado,
-                           vendas=vendas,
-                           total_vendas=total_vendas,
-                           valor_total_fmt=formatar_moeda(valor_total),
-                           **pp)
+    return redirect(url_for('relatorios', relatorio='vendas_por_cliente'))
 
 @app.route('/relatorios/vendas-por-mes')
 def relatorio_vendas_por_mes():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-
-    meses_pt = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-
-    pp = parametros_periodo()
-    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
-    ano_expr = func.extract('year', data_efetiva)
-    mes_expr = func.extract('month', data_efetiva)
-    linhas = db.session.query(
-        ano_expr.label('ano'),
-        mes_expr.label('mes'),
-        func.count().label('quantidade_vendas'),
-        func.sum(Venda.valor_total).label('valor'),
-    ).filter(Venda.status == 'Confirmada')\
-        .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))\
-        .group_by(ano_expr, mes_expr)\
-        .order_by(ano_expr.desc(), mes_expr.desc()).all()
-
-    totais = {}
-    for linha in linhas:
-        chave = (int(linha.ano), int(linha.mes))
-        totais[chave] = {'quantidade_vendas': linha.quantidade_vendas, 'valor': linha.valor or 0}
-
-    for chave, dados in totais.items():
-        dados['valor_fmt'] = formatar_moeda(dados['valor'])
-        dados['label'] = f"{meses_pt[chave[1]]}/{chave[0]}"
-
-    resultado = sorted(totais.items(), key=lambda item: item[0], reverse=True)
-    return render_template('relatorio_vendas_mes.html', meses=resultado, **pp)
+    return redirect(url_for('relatorios', relatorio='vendas_por_mes'))
 
 @app.route('/relatorios/historico-vendas')
 def relatorio_historico_vendas():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-
-    hoje = agora_brasil()
-    ano = request.args.get('ano', hoje.year, type=int)
-
-    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
-    vendedor_expr = func.coalesce(func.nullif(Venda.vendedor, ''),
-                                  func.nullif(Cliente.vendedor, ''),
-                                  'Sem vendedor')
-    cliente_expr = func.coalesce(func.nullif(Cliente.nome_fantasia, ''), Cliente.nome)
-    linhas = db.session.query(
-        vendedor_expr.label('vendedor'),
-        cliente_expr.label('cliente'),
-        func.extract('month', data_efetiva).label('mes'),
-        func.sum(Venda.valor_total).label('valor'),
-    ).select_from(Venda).join(Cliente, Venda.cliente_id == Cliente.id)\
-        .filter(Venda.status == 'Confirmada')\
-        .filter(func.extract('year', data_efetiva) == ano)\
-        .group_by(vendedor_expr, cliente_expr, func.extract('month', data_efetiva)).all()
-
-    agrupado = {}
-    totais_meses = [0.0] * 12
-    total_geral = 0.0
-    for linha in linhas:
-        vendedor = linha.vendedor
-        cliente = linha.cliente
-        mes = int(linha.mes)
-        valor = linha.valor or 0
-        grupo = agrupado.setdefault(vendedor, {'clientes': {}, 'total': 0.0})
-        grupo['total'] += valor
-        dados_cliente = grupo['clientes'].setdefault(cliente, {'meses': [0.0] * 12, 'total': 0.0})
-        dados_cliente['meses'][mes - 1] += valor
-        dados_cliente['total'] += valor
-        totais_meses[mes - 1] += valor
-        total_geral += valor
-
-    lista = []
-    for vendedor, grupo in agrupado.items():
-        clientes = sorted(grupo['clientes'].items(), key=lambda item: item[1]['total'], reverse=True)
-        lista.append({'vendedor': vendedor, 'total': grupo['total'], 'clientes': clientes})
-    lista.sort(key=lambda g: g['total'], reverse=True)
-
-    return render_template('relatorio_historico_vendas.html',
-                           grupos=lista, ano=ano, hoje=hoje,
-                           totais_meses=totais_meses, total_geral=total_geral)
+    return redirect(url_for('relatorios', relatorio='historico_matriz'))
 
 @app.route('/consignacoes-pendentes')
 def consignacoes_pendentes():
@@ -1025,15 +1084,9 @@ def salvar_venda_multipla():
 def relatorio_vendas():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-
-    pp = parametros_periodo()
-    data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
-    pagina = request.args.get('pagina', 1, type=int)
-    consulta = Venda.query.filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))\
-        .order_by(Venda.data.desc())
-    paginacao = consulta.paginate(page=pagina, per_page=25, error_out=False)
-    return render_template('detalhe_vendas.html', vendas=paginacao.items,
-                           paginacao=paginacao, **pp)
+    args = request.args.to_dict()
+    args['relatorio'] = 'historico_vendas'
+    return redirect(url_for('relatorios', **args))
 
 @app.route('/venda/detalhar/<int:id>')
 def detalhar_venda(id):
@@ -1183,41 +1236,9 @@ def marcar_venda_paga(id):
 def relatorio_comissao():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
-
-    hoje = agora_brasil()
-    pp = parametros_periodo()
-    vendedor_filtro = request.args.get('vendedor', '')
-
-    consulta = Venda.query.filter(
-        Venda.paga.is_(True),
-        Venda.data_pagamento.isnot(None),
-        Venda.data_pagamento.between(pp['data_inicio'], pp['data_fim']),
-    )
-    if vendedor_filtro:
-        consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
-    vendas_pagas = consulta.order_by(Venda.data_pagamento.desc()).all()
-
-    pct_por_vendedor = {v.nome: v.comissao_pct for v in Vendedor.query.all()}
-    resumo = {}
-    for venda in vendas_pagas:
-        nome_vendedor = venda.vendedor or 'Sem vendedor'
-        pct = pct_por_vendedor.get(venda.vendedor, 0) if venda.vendedor else 0
-        venda.comissao_valor = round(venda.valor_total * pct / 100, 2) if pct else 0.0
-        if nome_vendedor not in resumo:
-            resumo[nome_vendedor] = {'qtd': 0, 'total': 0.0, 'pct': pct}
-        resumo[nome_vendedor]['qtd'] += 1
-        resumo[nome_vendedor]['total'] += venda.valor_total
-        resumo[nome_vendedor]['comissao'] = resumo[nome_vendedor].get('comissao', 0.0) + venda.comissao_valor
-
-    for dados in resumo.values():
-        dados['total_fmt'] = formatar_moeda(dados['total'])
-        dados['comissao_fmt'] = formatar_moeda(dados['comissao'])
-
-    vendedores = Vendedor.query.order_by(Vendedor.nome).all()
-    return render_template('comissao_vendedores.html',
-                           vendedor_filtro=vendedor_filtro,
-                           resumo=resumo, vendas_pagas=vendas_pagas, vendedores=vendedores,
-                           **pp)
+    args = request.args.to_dict()
+    args['relatorio'] = 'comissao'
+    return redirect(url_for('relatorios', **args))
 
 TIPOS_HISTORICO = ['WhatsApp', 'Telefone', 'E-mail', 'Amostra', 'Visita', 'Negociação', 'Outro']
 

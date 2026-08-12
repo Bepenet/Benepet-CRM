@@ -6,6 +6,7 @@
     <title>Relatórios - BenePet CRM</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='imprimir.css') }}">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { display: flex; background-color: #f4f6f9; color: #333; min-height: 100vh; }
@@ -18,14 +19,52 @@
         .menu-link.active { background-color: #3b82f6; color: white; }
 
         .main-content { margin-left: 260px; flex-grow: 1; padding: 40px; }
-        .header-title { font-size: 26px; color: #0f172a; font-weight: 700; margin-bottom: 30px; }
+        .header-title { font-size: 26px; color: #0f172a; font-weight: 700; margin-bottom: 10px; }
 
-        .relatorios-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
-        .relatorio-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 12px; transition: transform 0.15s; }
-        .relatorio-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
-        .relatorio-icone { font-size: 28px; color: #3b82f6; }
-        .relatorio-titulo { font-size: 17px; font-weight: 700; color: #0f172a; }
-        .relatorio-desc { font-size: 14px; color: #64748b; }
+        .filtros { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 25px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .filtros label { display: block; margin-bottom: 5px; color: #34495e; font-weight: 500; font-size: 13px; }
+        .filtros select, .filtros input[type="date"] { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; min-width: 160px; }
+        .filtros select#relatorio { min-width: 240px; }
+        .filtros .btn-filtrar { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .filtros .btn-filtrar:hover { background: #1d4ed8; }
+        .filtros .grupo-filtro { display: flex; flex-direction: column; }
+
+        .data-section { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 30px; overflow-x: auto; }
+        .section-title { font-size: 18px; color: #1e293b; font-weight: 600; margin-bottom: 20px; }
+        .custom-table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
+        .custom-table th { padding: 14px 16px; background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0; }
+        .custom-table td { padding: 14px 16px; color: #334155; font-size: 15px; border-bottom: 1px solid #f1f5f9; }
+        .custom-table tr:hover td { background-color: #f8fafc; }
+        .badge { background: #e8f4fd; color: #2980b9; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+        .badge-confirmada { background: #d4edda; color: #155724; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
+        .badge-pendente { background: #fef3c7; color: #92400e; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
+        .badge-pago { background: #d4edda; color: #155724; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
+        .badge-aguardando { background: #fef3c7; color: #92400e; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
+        .btn-ver { background: #007bff; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block; }
+        .btn-ver:hover { background: #0056b3; }
+        .btn-editar { color: #b45309; text-decoration: none; font-size: 13px; font-weight: 500; }
+        .btn-editar:hover { text-decoration: underline; }
+        .btn-duplicar { color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 500; }
+        .btn-duplicar:hover { text-decoration: underline; }
+        .btn-excluir { background: none; border: none; color: #b91c1c; font-size: 13px; font-weight: 500; cursor: pointer; padding: 0; }
+        .btn-excluir:hover { text-decoration: underline; }
+        .separador-acoes { margin: 0 6px; color: #aaa; }
+        .resumo { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+        .resumo-item { background: #f8fafc; border-radius: 8px; padding: 14px 20px; }
+        .resumo-item span { display: block; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 600; letter-spacing: 0.5px; }
+        .resumo-item strong { font-size: 22px; color: #1e293b; }
+        .alert { padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: 500; text-align: center; }
+        .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert.erro { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .aviso-vazio { text-align: center; color: #94a3b8; padding: 30px !important; }
+        .linha-vendedor td { background-color: #eef2ff; font-weight: 700; color: #1e293b; border-top: 2px solid #c7d2fe; }
+        .linha-total td { background-color: #f8fafc; font-weight: 700; color: #0f172a; border-top: 2px solid #cbd5e1; }
+        .valor-zero { color: #cbd5e1; }
+        .custom-table.alinhada-direita { text-align: right; }
+        .custom-table.alinhada-direita th.col-nome, .custom-table.alinhada-direita td.col-nome { text-align: left; }
+        .paginacao { display: flex; justify-content: center; gap: 14px; margin-top: 20px; align-items: center; flex-wrap: wrap; }
+        .pagina-btn { background: #2563eb; color: white; border: none; padding: 9px 18px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: none; }
+        .pagina-btn:hover { background: #1d4ed8; }
 
         .mobile-topbar { display: none; }
         .overlay-menu { display: none; }
@@ -43,6 +82,7 @@
             .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
             .mobile-topbar span { font-size: 17px; font-weight: bold; }
             .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+            .custom-table { display: block; overflow-x: auto; white-space: nowrap; }
         }
     </style>
 </head>
@@ -54,7 +94,7 @@
     </div>
     <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
 
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             <span>🐾 BenePet CRM</span>
         </div>
@@ -64,74 +104,533 @@
             <a href="/clientes" class="menu-link">👥 Clientes</a>
             {% if is_admin %}
             <a href="/vendedores" class="menu-link">👤 Vendedores</a>
-            <a href="/backups" class="menu-link">💾 Backups</a>
             {% endif %}
             <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
             <a href="/relatorios" class="menu-link active">📄 Relatórios</a>
+            {% if is_admin %}
+            <a href="/backups" class="menu-link">💾 Backups</a>
+            {% endif %}
             <a href="/logout" class="menu-link" style="margin-top: auto; color: #ef4444;">🚪 Sair</a>
         </nav>
     </aside>
 
     <main class="main-content">
+        {% include 'cabecalho_impressao.html' %}
+        <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+
         <h2 class="header-title">📄 Relatórios</h2>
 
-        <div class="relatorios-grid">
-            <a href="/relatorios/proximo-contato" class="relatorio-card">
-                <span class="relatorio-icone"><i class="fa-solid fa-phone"></i></span>
-                <span class="relatorio-titulo">Próximo Contato</span>
-                <span class="relatorio-desc">Veja quando cada cliente deve ser contatado novamente.</span>
-            </a>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endwith %}
 
-            <a href="/vendas/relatorio" class="relatorio-card">
-                <span class="relatorio-icone"><i class="fa-solid fa-cart-shopping"></i></span>
-                <span class="relatorio-titulo">Histórico de Vendas</span>
-                <span class="relatorio-desc">Todas as vendas lançadas no sistema.</span>
-            </a>
+        <form class="filtros" method="GET" action="/relatorios">
+            <div class="grupo-filtro">
+                <label for="relatorio">Relatório</label>
+                <select id="relatorio" name="relatorio" onchange="atualizarFiltros()">
+                    {% for valor, rotulo in tipos_validos.items() %}
+                    <option value="{{ valor }}" {% if tipo == valor %}selected{% endif %}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-            <a href="/relatorios/historico-vendas" class="relatorio-card">
-                <span class="relatorio-icone"><i class="fa-solid fa-table-list"></i></span>
-                <span class="relatorio-titulo">Histórico de Vendas (Matriz)</span>
-                <span class="relatorio-desc">Vendas por vendedor e cliente, mês a mês.</span>
-            </a>
+            <div class="grupo-filtro" id="grupo-periodo">
+                <label for="periodo">Período</label>
+                <select id="periodo" name="periodo" onchange="alternarPeriodo()">
+                    <option value="mes" {% if periodo == 'mes' %}selected{% endif %}>Mês</option>
+                    <option value="ano" {% if periodo == 'ano' %}selected{% endif %}>Ano</option>
+                    <option value="periodo" {% if periodo == 'periodo' %}selected{% endif %}>Período específico</option>
+                </select>
+            </div>
 
-            <a href="/relatorios/vendas-por-vendedor" class="relatorio-card">
-                <span class="relatorio-icone"><i class="fa-solid fa-user-tie"></i></span>
-                <span class="relatorio-titulo">Vendas por Vendedor</span>
-                <span class="relatorio-desc">Total vendido por cada vendedor responsável.</span>
-            </a>
+            <div class="grupo-filtro" id="grupo-mes">
+                <label for="mes">Mês</label>
+                <select id="mes" name="mes">
+                    {% for numero in range(1, 13) %}
+                    <option value="{{ numero }}" {% if numero == mes %}selected{% endif %}>{{ meses_nomes[numero - 1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-            <a href="/relatorios/comissao" class="relatorio-card">
-                <span class="relatorio-icone"><i class="fa-solid fa-money-bill-wave"></i></span>
-                <span class="relatorio-titulo">Comissão de Vendedores</span>
-                <span class="relatorio-desc">Comissão sobre boletos pagos, mês a mês.</span>
-            </a>
+            <div class="grupo-filtro" id="grupo-ano">
+                <label for="ano">Ano</label>
+                <select id="ano" name="ano">
+                    {% for ano_opcao in range(hoje.year + 1, hoje.year - 6, -1) %}
+                    <option value="{{ ano_opcao }}" {% if ano_opcao == ano %}selected{% endif %}>{{ ano_opcao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-            <a href="/relatorios/vendas-por-mes" class="relatorio-card">
-                <span class="relatorio-icone"><i class="fa-solid fa-calendar-days"></i></span>
-                <span class="relatorio-titulo">Vendas por Mês</span>
-                <span class="relatorio-desc">Total vendido em cada mês.</span>
-            </a>
+            <div class="grupo-filtro" id="grupo-data-inicio">
+                <label for="data_inicio">Data Início</label>
+                <input type="date" id="data_inicio" name="data_inicio" value="{{ data_inicio_str }}">
+            </div>
 
-            <a href="/relatorios/vendas-por-cliente" class="relatorio-card">
-                <span class="relatorio-icone"><i class="fa-solid fa-user-group"></i></span>
-                <span class="relatorio-titulo">Vendas por Cliente</span>
-                <span class="relatorio-desc">Selecione um cliente e veja somente as vendas dele.</span>
-            </a>
+            <div class="grupo-filtro" id="grupo-data-fim">
+                <label for="data_fim">Data Fim</label>
+                <input type="date" id="data_fim" name="data_fim" value="{{ data_fim_str }}">
+            </div>
 
-            {% if is_admin %}
-            <a href="/backups" class="relatorio-card">
-                <span class="relatorio-icone"><i class="fa-solid fa-database"></i></span>
-                <span class="relatorio-titulo">Backups</span>
-                <span class="relatorio-desc">Crie e baixe backups do banco de dados.</span>
-            </a>
+            <div class="grupo-filtro" id="grupo-vendedor">
+                <label for="vendedor">Vendedor</label>
+                <select id="vendedor" name="vendedor">
+                    <option value="">Todos os vendedores</option>
+                    {% for v in vendedores %}
+                    <option value="{{ v.nome }}" {% if vendedor_filtro == v.nome %}selected{% endif %}>{{ v.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="grupo-filtro" id="grupo-cliente">
+                <label for="cliente_id">Cliente</label>
+                <select id="cliente_id" name="cliente_id">
+                    <option value="">— Selecione o cliente —</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.id }}" {% if cliente_id == c.id %}selected{% endif %}>{{ c.nome_exibicao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn-filtrar"><i class="fa-solid fa-magnifying-glass"></i> Filtrar</button>
+        </form>
+
+        {% if tipo == 'historico_vendas' %}
+        <div class="data-section">
+            <h3 class="section-title">🛒 Histórico de Vendas Lançadas - {{ rotulo_periodo }}</h3>
+            <table class="custom-table" id="tabela-historico">
+                <thead>
+                    <tr>
+                        <th>ID da Venda</th>
+                        <th>Cliente</th>
+                        <th>Data de Lançamento</th>
+                        <th>Prazo Pagamento</th>
+                        <th>Status</th>
+                        <th>Pagamento</th>
+                        <th>Valor Total</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for venda in paginacao.items %}
+                    <tr>
+                        <td>#{{ venda.id }}</td>
+                        <td><strong>{{ venda.cliente.nome_exibicao }}</strong></td>
+                        <td>{{ venda.data.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ venda.prazo_pagamento or '-' }}</td>
+                        <td>
+                            {% if venda.status == 'Confirmada' %}
+                                <span class="badge-confirmada">Confirmada</span>
+                            {% else %}
+                                <span class="badge-pendente">Consignado (Pendente)</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if venda.paga %}
+                                <span class="badge-pago">Pago</span>
+                            {% else %}
+                                <span class="badge-aguardando">Aguardando</span>
+                            {% endif %}
+                        </td>
+                        <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
+                        <td>
+                            <a href="/venda/detalhar/{{ venda.id }}" class="btn-ver">Visualizar</a><span class="separador-acoes">/</span>
+                            <a href="/vendas/{{ venda.id }}/editar" class="btn-editar">Editar</a><span class="separador-acoes">/</span>
+                            <a href="/vendas/{{ venda.id }}/duplicar" class="btn-duplicar">Duplicar</a><span class="separador-acoes">/</span>
+                            <form action="/vendas/{{ venda.id }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir a venda #{{ venda.id }}? Essa ação não pode ser desfeita.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn-excluir">Excluir</button></form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="aviso-vazio">Nenhuma venda encontrada no período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if paginacao and paginacao.pages > 1 %}
+            <div class="paginacao">
+                {% set args = request.args.to_dict() %}
+                {% if paginacao.has_prev %}
+                <a href="{{ url_for('relatorios', **dict(args, pagina=paginacao.prev_num)) }}" class="pagina-btn">← Anterior</a>
+                {% endif %}
+                <span style="font-size: 14px; color: #333;">Página {{ paginacao.page }} de {{ paginacao.pages }} ({{ paginacao.total }} vendas)</span>
+                {% if paginacao.has_next %}
+                <a href="{{ url_for('relatorios', **dict(args, pagina=paginacao.next_num)) }}" class="pagina-btn">Próxima →</a>
+                {% endif %}
+            </div>
             {% endif %}
         </div>
+
+        {% elif tipo == 'vendas_por_vendedor' %}
+        <div class="data-section">
+            <h3 class="section-title">👤 Vendas por Vendedor - {{ rotulo_periodo }}</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Vendedor</th>
+                        <th>Qtd. de Vendas</th>
+                        <th>Total Vendido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vendedor, dados in vendedores_resumo %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;">{{ vendedor }}</td>
+                        <td><span class="badge">{{ dados.quantidade_vendas }}</span></td>
+                        <td style="font-weight: 700;">R$ {{ dados.valor_fmt }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="aviso-vazio">Nenhuma venda registrada no período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% elif tipo == 'vendas_por_cliente' %}
+        <div class="data-section">
+            <h3 class="section-title">🛒 Vendas por Cliente - {{ rotulo_periodo }}</h3>
+            {% if not cliente_selecionado %}
+            <p class="aviso-vazio">Selecione um cliente no filtro acima e clique em <strong>Filtrar</strong>.</p>
+            {% else %}
+            <div class="resumo">
+                <div class="resumo-item">
+                    <span>Total de Vendas</span>
+                    <strong>{{ total_vendas }}</strong>
+                </div>
+                <div class="resumo-item">
+                    <span>Valor Total</span>
+                    <strong>R$ {{ valor_total_fmt }}</strong>
+                </div>
+            </div>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data</th>
+                        <th>Prazo de Pagamento</th>
+                        <th>Tipo</th>
+                        <th>Status</th>
+                        <th>Valor Total</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vendas_cliente %}
+                    <tr>
+                        <td>#{{ v.id }}</td>
+                        <td>{{ v.data.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ v.prazo_pagamento or '-' }}</td>
+                        <td>{{ v.tipo }}</td>
+                        <td>
+                            {% if v.status == 'Confirmada' %}
+                                <span class="badge-confirmada">Confirmada</span>
+                            {% else %}
+                                <span class="badge-pendente">Consignado (Pendente)</span>
+                            {% endif %}
+                        </td>
+                        <td>R$ {{ "%.2f"|format(v.valor_total) }}</td>
+                        <td><a href="/venda/detalhar/{{ v.id }}" class="btn-ver">Ver Itens</a></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="aviso-vazio">Esse cliente ainda não tem vendas registradas no período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+
+        {% elif tipo == 'vendas_por_mes' %}
+        <div class="data-section">
+            <h3 class="section-title">📅 Vendas por Mês - {{ rotulo_periodo }}</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Mês</th>
+                        <th>Qtd. de Vendas</th>
+                        <th>Total Vendido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for chave, dados in meses_resumo %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;">{{ dados.label }}</td>
+                        <td><span class="badge">{{ dados.quantidade_vendas }}</span></td>
+                        <td style="font-weight: 700;">R$ {{ dados.valor_fmt }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="aviso-vazio">Nenhuma venda registrada no período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% elif tipo == 'comissao' %}
+        {% set total_geral = namespace(valor=0.0, comissao=0.0, qtd=0) %}
+        <div class="data-section">
+            <h3 class="section-title">💰 Comissão de Vendedores - {{ rotulo_periodo }}</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Vendedor</th>
+                        <th>Boletos Pagos</th>
+                        <th>Total Vendido</th>
+                        <th>Comissão (%)</th>
+                        <th>Comissão a Pagar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for nome_vendedor, dados in resumo_comissao.items() %}
+                    {% set total_geral.valor = total_geral.valor + dados.total %}
+                    {% set total_geral.comissao = total_geral.comissao + dados.comissao %}
+                    {% set total_geral.qtd = total_geral.qtd + dados.qtd %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;">{{ nome_vendedor }}</td>
+                        <td><span class="badge-pago">{{ dados.qtd }}</span></td>
+                        <td>R$ {{ dados.total_fmt }}</td>
+                        <td>{{ "%.2f"|format(dados.pct|default(0)|float)|replace('.', ',') }}%</td>
+                        <td style="font-weight: 700; color: #155724;">R$ {{ dados.comissao_fmt }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="aviso-vazio">Nenhum boleto pago no período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if resumo_comissao %}
+                <tfoot>
+                    <tr style="background: #f8fafc; font-weight: 700;">
+                        <td>Total Geral</td>
+                        <td><span class="badge-pago">{{ total_geral.qtd }}</span></td>
+                        <td>R$ {{ "%.2f"|format(total_geral.valor) }}</td>
+                        <td>-</td>
+                        <td>R$ {{ "%.2f"|format(total_geral.comissao) }}</td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+
+        <div class="data-section">
+            <h3 class="section-title">📄 Boletos Pagos no Período</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Data Pagamento</th>
+                        <th>Venda</th>
+                        <th>Cliente</th>
+                        <th>Vendedor</th>
+                        <th>Valor</th>
+                        <th>Comissão</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for venda in vendas_pagas %}
+                    <tr>
+                        <td>{{ venda.data_pagamento.strftime('%d/%m/%Y') }}</td>
+                        <td><a href="/venda/detalhar/{{ venda.id }}" style="color: #2563eb;">#{{ venda.id }}</a></td>
+                        <td>{{ venda.cliente.nome_exibicao }}</td>
+                        <td>{{ venda.vendedor or '-' }}</td>
+                        <td>R$ {{ "%.2f"|format(venda.valor_total) }}</td>
+                        <td>R$ {{ "%.2f"|format(venda.comissao_valor) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="aviso-vazio">Nenhum boleto pago no período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% elif tipo == 'historico_matriz' %}
+        <div class="data-section">
+            <h3 class="section-title">📊 Histórico de Vendas por Vendedor/Cliente - {{ ano }}</h3>
+            <table class="custom-table alinhada-direita">
+                <thead>
+                    <tr>
+                        <th class="col-nome">Vendedor</th>
+                        <th class="col-nome">Cliente</th>
+                        {% set meses_curtos = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'] %}
+                        {% for m in meses_curtos %}
+                        <th>{{ m }}</th>
+                        {% endfor %}
+                        <th class="col-total">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grupo in grupos_matriz %}
+                    <tr class="linha-vendedor">
+                        <td class="col-nome" colspan="2">{{ grupo.vendedor }}</td>
+                        {% for valor in [0] * 12 %}
+                        <td></td>
+                        {% endfor %}
+                        <td class="col-total">R$ {{ grupo.total | moeda }}</td>
+                    </tr>
+                    {% for cliente, dados in grupo.clientes %}
+                    <tr>
+                        <td class="col-nome"></td>
+                        <td class="col-nome">{{ cliente }}</td>
+                        {% for valor in dados.meses %}
+                        <td>{% if valor %}{{ valor | moeda }}{% else %}<span class="valor-zero">-</span>{% endif %}</td>
+                        {% endfor %}
+                        <td class="col-total">R$ {{ dados.total | moeda }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                    {% if grupos_matriz %}
+                    <tr class="linha-total">
+                        <td class="col-nome" colspan="2">Total Geral</td>
+                        {% for valor in totais_meses %}
+                        <td>{% if valor %}{{ valor | moeda }}{% else %}<span class="valor-zero">-</span>{% endif %}</td>
+                        {% endfor %}
+                        <td class="col-total">R$ {{ total_geral | moeda }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="14" class="aviso-vazio">Nenhuma venda confirmada em {{ ano }}.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        {% elif tipo == 'proximo_contato' %}
+        <div class="data-section">
+            <h3 class="section-title">📞 Próximo Contato</h3>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Contato</th>
+                        <th>Última Venda</th>
+                        <th>Próximo Contato</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in clientes_contato %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;"><a href="/clientes/{{ c.id }}">{{ c.nome_exibicao }}</a></td>
+                        <td>{{ c.telefone or '-' }}</td>
+                        <td>{{ c.ultima_venda_data.strftime('%d/%m/%Y') if c.ultima_venda_data else 'Nunca comprou' }}</td>
+                        <td><span class="badge">{{ c.proximo_contato.strftime('%d/%m/%Y') }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="aviso-vazio">Nenhum cliente cadastrado no momento.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </main>
 
     <script>
     function alternarMenu() {
-        document.querySelector('.sidebar').classList.toggle('aberta');
+        document.getElementById('sidebar').classList.toggle('aberta');
         document.getElementById('overlayMenu').classList.toggle('ativo');
+    }
+
+    function alternarPeriodo() {
+        var periodo = document.getElementById('periodo').value;
+        document.getElementById('grupo-mes').style.display = (periodo === 'mes') ? 'flex' : 'none';
+        document.getElementById('grupo-ano').style.display = (periodo === 'periodo') ? 'none' : 'flex';
+        document.getElementById('grupo-data-inicio').style.display = (periodo === 'periodo') ? 'flex' : 'none';
+        document.getElementById('grupo-data-fim').style.display = (periodo === 'periodo') ? 'flex' : 'none';
+    }
+
+    function atualizarFiltros() {
+        var tipo = document.getElementById('relatorio').value;
+        var usaPeriodo = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_cliente', 'vendas_por_mes', 'comissao'].indexOf(tipo) !== -1;
+        var usaMatriz = tipo === 'historico_matriz';
+        var usaVendedor = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_mes', 'comissao', 'historico_matriz'].indexOf(tipo) !== -1;
+        var usaCliente = tipo === 'vendas_por_cliente';
+
+        document.getElementById('grupo-periodo').style.display = usaPeriodo ? 'flex' : 'none';
+        document.getElementById('grupo-vendedor').style.display = usaVendedor ? 'flex' : 'none';
+        document.getElementById('grupo-cliente').style.display = usaCliente ? 'flex' : 'none';
+
+        if (usaPeriodo) {
+            alternarPeriodo();
+        } else {
+            document.getElementById('grupo-mes').style.display = 'none';
+            document.getElementById('grupo-data-inicio').style.display = 'none';
+            document.getElementById('grupo-data-fim').style.display = 'none';
+            document.getElementById('grupo-ano').style.display = usaMatriz ? 'flex' : 'none';
+        }
+    }
+
+    atualizarFiltros();
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var tabela = document.getElementById('tabela-historico');
+        if (!tabela) return;
+        var cabecalhos = tabela.querySelectorAll('thead th');
+        cabecalhos.forEach(function (th, indice) {
+            if (th.textContent.trim() === 'Ações') return;
+            th.classList.add('ordena-rapido');
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', function () { ordenarTabela(tabela, indice); });
+        });
+    });
+
+    function ordenarTabela(tabela, indice) {
+        var cabecalhos = tabela.querySelectorAll('thead th');
+        var corpo = tabela.querySelector('tbody');
+        var linhas = Array.prototype.slice.call(corpo.querySelectorAll('tr'));
+        var colunaAtual = tabela.getAttribute('data-coluna');
+        var ascendente = colunaAtual !== String(indice) || tabela.getAttribute('data-ordem') !== 'asc';
+        tabela.setAttribute('data-coluna', indice);
+        tabela.setAttribute('data-ordem', ascendente ? 'asc' : 'desc');
+
+        cabecalhos.forEach(function (th) {
+            var seta = th.querySelector('.seta-ordem');
+            if (seta) seta.remove();
+        });
+        var seta = document.createElement('span');
+        seta.className = 'seta-ordem';
+        seta.textContent = ascendente ? '\u25B2' : '\u25BC';
+        cabecalhos[indice].appendChild(seta);
+
+        linhas.sort(function (a, b) {
+            var celsA = a.querySelectorAll('td');
+            var celsB = b.querySelectorAll('td');
+            if (!celsA[indice] || !celsB[indice]) return 0;
+            var va = celsA[indice].textContent.trim();
+            var vb = celsB[indice].textContent.trim();
+            var r = compararValores(va, vb);
+            return ascendente ? r : -r;
+        });
+
+        linhas.forEach(function (linha) { corpo.appendChild(linha); });
+    }
+
+    function compararValores(a, b) {
+        var dataA = extrairData(a), dataB = extrairData(b);
+        if (dataA && dataB) return dataA - dataB;
+        var numA = extrairNumero(a), numB = extrairNumero(b);
+        if (numA !== null && numB !== null) return numA - numB;
+        return a.localeCompare(b, 'pt-BR', { numeric: true });
+    }
+
+    function extrairData(texto) {
+        var m = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? new Date(m[3], m[2] - 1, m[1]) : null;
+    }
+
+    function extrairNumero(texto) {
+        var limpo = texto.replace(/[R$#\s.]/g, '').replace(',', '.');
+        if (limpo === '' || limpo === '-') return null;
+        var n = parseFloat(limpo);
+        return isNaN(n) ? null : n;
     }
     </script>
 
