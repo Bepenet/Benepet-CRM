@@ -149,6 +149,20 @@ def test_relatorios_pagina_unica_lista_tipos(client):
     assert b'proximo_contato' in resp.data
 
 
+def test_relatorios_vem_vazio_por_padrao(client, app):
+    login(client)
+    c = criar_cliente('Pet Shop Teste')
+    with app.app_context():
+        db.session.add(Venda(cliente_id=c, data=agora_brasil(), valor_total=10.0,
+                             status='Confirmada', emitir_nf=True))
+        db.session.commit()
+
+    resp = client.get('/relatorios')
+    assert resp.status_code == 200
+    assert b'Escolha um relat' in resp.data
+    assert b'R$ 10.00' not in resp.data
+
+
 def test_relatorios_historico_vendas_com_venda(client, app):
     login(client)
     c = criar_cliente('Pet Shop Teste')

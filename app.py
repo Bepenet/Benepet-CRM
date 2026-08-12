@@ -525,9 +525,9 @@ def relatorios():
         'historico_matriz': 'Histórico de Vendas (Matriz)',
         'proximo_contato': 'Próximo Contato',
     }
-    tipo = request.args.get('relatorio', 'historico_vendas')
+    tipo = request.args.get('relatorio', '')
     if tipo not in tipos_validos:
-        tipo = 'historico_vendas'
+        tipo = ''
 
     vendedor_filtro = request.args.get('vendedor', '')
     cliente_id = request.args.get('cliente_id', type=int)

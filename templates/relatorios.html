@@ -130,6 +130,7 @@
             <div class="grupo-filtro">
                 <label for="relatorio">Relatório</label>
                 <select id="relatorio" name="relatorio" onchange="atualizarFiltros()">
+                    <option value="">— Selecione o relatório —</option>
                     {% for valor, rotulo in tipos_validos.items() %}
                     <option value="{{ valor }}" {% if tipo == valor %}selected{% endif %}>{{ rotulo }}</option>
                     {% endfor %}
@@ -196,7 +197,13 @@
             <button type="submit" class="btn-filtrar"><i class="fa-solid fa-magnifying-glass"></i> Filtrar</button>
         </form>
 
-        {% if tipo == 'historico_vendas' %}
+        {% if not tipo %}
+        <div class="data-section">
+            <h3 class="section-title">📋 Escolha um relatório</h3>
+            <p class="aviso-vazio">Selecione um relatório no filtro acima e clique em <strong>Filtrar</strong> para visualizar os dados.</p>
+        </div>
+
+        {% elif tipo == 'historico_vendas' %}
         <div class="data-section">
             <h3 class="section-title">🛒 Histórico de Vendas Lançadas - {{ rotulo_periodo }}</h3>
             <table class="custom-table" id="tabela-historico">
