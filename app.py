@@ -122,7 +122,7 @@ def parametros_periodo():
 # Número que recebe o aviso de vendas confirmadas para emissão de NF (com DDI+DDD)
 WHATSAPP_NF_NUMERO = os.environ.get('WHATSAPP_NF_NUMERO', '5547988139107')
 
-def montar_link_whatsapp_nf(venda):
+def montar_link_whatsapp_nf(venda, convertida_de_consignacao=False):
     """Monta o link do WhatsApp (wa.me) com os dados da venda prontos para gerar a NF."""
     cliente = venda.cliente
     if venda.emitir_nf is False:
@@ -134,6 +134,8 @@ def montar_link_whatsapp_nf(venda):
         linhas = [
             "📄 *Nova venda confirmada - gerar NF*",
         ]
+    if convertida_de_consignacao:
+        linhas.append("✅ *Venda convertida de Consignado para Venda Confirmada*")
     linhas.append(f"Cliente (Razão Social): {cliente.nome}")
     if cliente.nome_fantasia:
         linhas.append(f"Nome Fantasia: {cliente.nome_fantasia}")
@@ -151,7 +153,7 @@ def montar_link_whatsapp_nf(venda):
     linhas.append("")
     linhas.append("Itens:")
     for item in venda.itens:
-        linhas.append(f"- {item.produto} x{item.quantidade} = R$ {formatar_moeda(item.valor_subtotal)}")
+        linhas.append(f"- {item.produto} x{item.quantidade} un x R$ {formatar_moeda(item.valor_unitario)} = R$ {formatar_moeda(item.valor_subtotal)}")
     linhas.append("")
     linhas.append(f"*Total: R$ {formatar_moeda(venda.valor_total)}*")
 
@@ -691,7 +693,7 @@ def confirmar_consignacao(id):
         venda.data_confirmacao = agora_brasil()
         db.session.commit()
         flash(f'Consignação #{venda.id} confirmada como venda!', 'sucesso')
-        flash(montar_link_whatsapp_nf(venda), 'whatsapp_link')
+        flash(montar_link_whatsapp_nf(venda, convertida_de_consignacao=True), 'whatsapp_link')
     return redirect(url_for('consignacoes_pendentes'))
 
 @app.route('/contatos-pendentes')

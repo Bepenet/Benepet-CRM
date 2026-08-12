@@ -1,4 +1,5 @@
-﻿from conftest import login, post_json_com_csrf, criar_vendedor
+﻿from conftest import login, post_json_com_csrf, criar_vendedor, obter_token_csrf
+from app import montar_link_whatsapp_nf
 from models import db, Cliente, Venda, ItemVenda, Vendedor, agora_brasil
 
 
@@ -126,4 +127,49 @@ def test_relatorio_vendas_por_vendedor(client, app):
     assert resp.status_code == 200
     assert b'Maria' in resp.data
     assert b'Joao' in resp.data
+
+
+def test_mensagem_whatsapp_item_com_unidade_e_preco(client, app):
+    from urllib.parse import unquote
+    login(client)
+    cliente = criar_cliente('Pet Shop Teste')
+    with app.app_context():
+        venda = Venda(cliente_id=cliente, data=agora_brasil(), valor_total=25.5,
+                      status='Confirmada', prazo_pagamento='A Vista (Pix)')
+        db.session.add(venda)
+        db.session.flush()
+        db.session.add(ItemVenda(venda_id=venda.id, produto='TAPETE', quantidade=2,
+                                 valor_unitario=10.0, valor_subtotal=20.0))
+        db.session.add(ItemVenda(venda_id=venda.id, produto='AREIA', quantidade=1,
+                                 valor_unitario=5.5, valor_subtotal=5.5))
+        db.session.commit()
+
+        link = unquote(montar_link_whatsapp_nf(venda))
+        assert 'TAPETE x2 un x R$ 10,00 = R$ 20,00' in link
+        assert 'AREIA x1 un x R$ 5,50 = R$ 5,50' in link
+        assert 'Total: R$ 25,50' in link
+        assert 'convertida de Consignado' not in link
+
+        link_convertida = unquote(montar_link_whatsapp_nf(venda, convertida_de_consignacao=True))
+        assert '✅ *Venda convertida de Consignado para Venda Confirmada*' in link_convertida
+
+
+def test_mensagem_whatsapp_confirmar_consignacao(client, app):
+    login(client)
+    cliente = criar_cliente('Pet Shop Teste')
+    with app.app_context():
+        venda = Venda(cliente_id=cliente, data=agora_brasil(), valor_total=20.0,
+                      status='Pendente', tipo='Consignado', emitir_nf=True)
+        db.session.add(venda)
+        db.session.commit()
+        venda_id = venda.id
+
+    token = obter_token_csrf(client, '/consignacoes-pendentes')
+    client.post(f'/vendas/{venda_id}/confirmar_consignacao', data={'csrf_token': token},
+                follow_redirects=True)
+
+    with app.app_context():
+        venda = db.session.get(Venda, venda_id)
+        assert venda.status == 'Confirmada'
+        assert venda.data_confirmacao is not None
 
