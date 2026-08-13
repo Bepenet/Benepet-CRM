@@ -6,10 +6,83 @@
     <title>Gerenciamento de Usuários - BenePet CRM</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background-color: #f4f6f9; display: flex; }
+        .sidebar { width: 260px; background-color: #1e293b; color: white; display: flex; flex-direction: column; padding: 20px; flex-shrink: 0; position: fixed; left: 0; top: 0; height: 100vh; }
+        .sidebar-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: bold; margin-bottom: 40px; padding: 10px 5px; border-bottom: 1px solid #334155; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .menu-link { display: flex; align-items: center; gap: 12px; color: #94a3b8; text-decoration: none; padding: 12px 15px; border-radius: 8px; font-weight: 500; transition: all 0.3s ease; }
+        .menu-link:hover { background-color: #334155; color: white; }
+        .menu-link.active { background-color: #3b82f6; color: white; }
+        .content { margin-left: 260px; padding: 40px; width: calc(100% - 260px); box-sizing: border-box; }
+        .form-container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { margin-bottom: 5px; color: #34495e; font-weight: 500; font-size: 14px; }
+        .form-group input, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        .btn-submit { background-color: #8e44ad; color: white; border: none; padding: 12px 20px; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-submit:hover { background-color: #732d91; }
+        .btn-papel { background: none; border: none; color: #3498db; cursor: pointer; font-size: 14px; font-weight: bold; padding: 10px 14px; border-radius: 6px; }
+        .btn-papel:hover { background-color: #eef2ff; }
+        .tabela-scroll { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+        th { background-color: #34495e; color: white; font-weight: 600; }
+        tr:hover { background-color: #f9f9f9; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .badge-admin { background: #eef2ff; color: #4338ca; }
+        .badge-usuario { background: #f1f5f9; color: #64748b; }
+
+        .mobile-topbar { display: none; }
+        .overlay-menu { display: none; }
+
+        @media (max-width: 768px) {
+            body { display: block; }
+            .sidebar { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 1000; }
+            .sidebar.aberta { transform: translateX(0); }
+            .content { margin-left: 0; width: 100%; padding: 20px; padding-top: 76px; }
+            .mobile-topbar {
+                display: flex; align-items: center; gap: 14px;
+                position: fixed; top: 0; left: 0; right: 0; height: 56px;
+                background: #1e293b; color: white; padding: 0 16px; z-index: 999;
+            }
+            .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+            .mobile-topbar span { font-size: 17px; font-weight: bold; }
+            .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+        }
+    </style>
 </head>
 <body>
-    <div class="container" style="max-width: 800px; margin: 0 auto; padding: 20px;">
-        <h2>🔐 Controle de Acesso - Usuários</h2>
+
+    <div class="mobile-topbar">
+        <button onclick="alternarMenu()">☰</button>
+        <span>🐾 BenePet CRM</span>
+    </div>
+    <div class="overlay-menu" id="overlayMenu" onclick="alternarMenu()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span>🐾 BenePet CRM</span>
+        </div>
+        <nav class="sidebar-menu">
+            <a href="/dashboard" class="menu-link">📊 Dashboard</a>
+            <a href="/prospeccoes" class="menu-link">🎯 Prospecção</a>
+            <a href="/clientes" class="menu-link">👥 Clientes</a>
+            {% if is_admin %}
+            <a href="/vendedores" class="menu-link">👤 Vendedores</a>
+            <a href="/backups" class="menu-link">💾 Backups</a>
+            {% endif %}
+            <a href="/vendas" class="menu-link">🛒 Lançar Vendas</a>
+            <a href="/relatorios" class="menu-link">📄 Relatórios</a>
+            <a href="/usuarios?user=admin" id="btn-admin" class="menu-link active">🔐 Usuários</a>
+            <a href="/logout" class="menu-link" style="margin-top: auto; color: #ef4444;">🚪 Sair</a>
+        </nav>
+    </div>
+
+    <div class="content">
+        <h1>🔐 Controle de Acesso - Usuários</h1>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -20,53 +93,56 @@
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        
-        <form method="POST" action="/usuarios" style="background:#f8f9fa; padding:20px; border-radius:8px; margin-bottom:30px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-container">
             <h3>Criar Novo Acesso</h3>
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:15px;">
-                <div>
-                    <label style="display:block; margin-bottom:5px;">Nome de Usuário (Login):</label>
-                    <input type="text" name="usuario" placeholder="Ex: maria.pet" required style="width:100%; padding:8px; box-sizing:border-box;">
+            <form method="POST" action="/usuarios"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="usuario">Nome de Usuário (Login):</label>
+                        <input type="text" id="usuario" name="usuario" placeholder="Ex: maria.pet" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="senha">Senha de Acesso:</label>
+                        <input type="password" id="senha" name="senha" placeholder="Senha do usuário" required>
+                    </div>
                 </div>
-                <div>
-                    <label style="display:block; margin-bottom:5px;">Senha de Acesso:</label>
-                    <input type="password" name="senha" placeholder="Senha do usuário" required style="width:100%; padding:8px; box-sizing:border-box;">
-                </div>
-            </div>
-            <label style="display:flex; align-items:center; gap:8px; margin-bottom:15px; cursor:pointer;">
-                <input type="checkbox" name="admin" value="1">
-                <span>Administrador (acesso a vendedores, backups e usuários)</span>
-            </label>
-            <button type="submit" style="background:#8e44ad; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-weight:bold;">Adicionar Usuário</button>
-        </form>
+                <label style="display:flex; align-items:center; gap:8px; margin-bottom:15px; cursor:pointer;">
+                    <input type="checkbox" name="admin" value="1">
+                    <span>Administrador (acesso a vendedores, backups e usuários)</span>
+                </label>
+                <button type="submit" class="btn-submit">Adicionar Usuário</button>
+            </form>
+        </div>
 
         <h3>Contas Ativas</h3>
-        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+        <div class="tabela-scroll">
+        <table>
             <thead>
-                <tr style="background:#e9ecef; text-align:left;">
-                    <th style="padding:10px; border-bottom: 2px solid #ddd;">ID</th>
-                    <th style="padding:10px; border-bottom: 2px solid #ddd;">Usuário / Login</th>
-                    <th style="padding:10px; border-bottom: 2px solid #ddd;">Papel</th>
-                    <th style="padding:10px; border-bottom: 2px solid #ddd;">Ação</th>
+                <tr>
+                    <th>ID</th>
+                    <th>Usuário / Login</th>
+                    <th>Papel</th>
+                    <th>Ação</th>
                 </tr>
             </thead>
             <tbody>
                 {% for u in usuarios %}
-                <tr style="border-bottom:1px solid #ddd;">
-                    <td style="padding:10px;">{{ u.id }}</td>
-                    <td style="padding:10px; font-weight:bold;">{{ u.login }}{% if u.login == usuario_atual_login %} (você){% endif %}</td>
-                    <td style="padding:10px;">
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td style="font-weight:bold;">{{ u.login }}{% if u.login == usuario_atual_login %} (você){% endif %}</td>
+                    <td>
                         {% if u.admin %}
-                        <span style="background:#eef2ff; color:#4338ca; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:bold;">Admin</span>
+                        <span class="badge badge-admin">Admin</span>
                         {% else %}
-                        <span style="background:#f1f5f9; color:#64748b; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:bold;">Usuário</span>
+                        <span class="badge badge-usuario">Usuário</span>
                         {% endif %}
                     </td>
-                    <td style="padding:10px;">
+                    <td>
                         {% if u.login != usuario_atual_login %}
                         <form action="/usuarios/{{ u.id }}/admin" method="POST" style="display:inline;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" style="background:none; border:none; color:#3498db; cursor:pointer; font-size:13px; font-weight:bold;">
+                            <button type="submit" class="btn-papel">
                                 {{ 'Remover admin' if u.admin else 'Tornar admin' }}
                             </button>
                         </form>
@@ -78,8 +154,14 @@
                 {% endfor %}
             </tbody>
         </table>
-        <br>
-        <a href="/dashboard">← Voltar ao Dashboard</a>
+        </div>
     </div>
+
+    <script>
+        function alternarMenu() {
+            document.getElementById('sidebar').classList.toggle('aberta');
+            document.getElementById('overlayMenu').classList.toggle('ativo');
+        }
+    </script>
 </body>
 </html>

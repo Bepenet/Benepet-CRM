@@ -1,0 +1,52 @@
+/* ===== Melhorias mobile (BenePet CRM) ===== */
+/* Este arquivo só vale em telas pequenas (até 768px). Usa !important de forma
+   pontual para sobrescrever estilos inline que existem nas templates. */
+
+@media (max-width: 768px) {
+
+    /* Campos com 16px evitam o zoom automático do iOS ao focar,
+       e a altura mínima garante área de toque confortável. */
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        font-size: 16px !important;
+        min-height: 44px !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Botões e links de menu com área de toque maior. */
+    button,
+    .btn-whats,
+    .menu-link {
+        min-height: 44px !important;
+    }
+
+    /* Lançamento/edição de venda: o botão "+" ocupa a linha inteira. */
+    .linha-item {
+        align-items: stretch !important;
+    }
+
+    .linha-item button {
+        min-height: 44px;
+        width: 100%;
+    }
+
+    /* Links/botões de ação dentro de tabelas com área de toque maior. */
+    td a,
+    td button {
+        display: inline-flex !important;
+        align-items: center;
+        min-height: 36px;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+    }
+
+    /* Scroll suave das tabelas horizontais no iOS. */
+    .tabela-scroll,
+    .custom-table,
+    table {
+        -webkit-overflow-scrolling: touch;
+    }
+}
