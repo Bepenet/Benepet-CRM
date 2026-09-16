@@ -444,7 +444,8 @@ def login():
             else:
                 flash('Usuário ou senha inválidos!', 'erro')
         except Exception as e:
-            flash('Conexão instável com a base de dados. Tente novamente.', 'erro')
+            print(f"Erro no banco durante login: {e}")
+            flash(f'Erro na base de dados: {e}', 'erro')
 
     return render_template('login.html')
 
