@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Backups - BenePet CRM</title>
+    <title>Restaurar Backup - BenePet CRM</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
@@ -19,23 +19,17 @@
         .mobile-topbar { display: none; }
         .overlay-menu { display: none; }
 
-        .container { max-width: 900px; margin: 0 auto; padding: 20px; box-sizing: border-box; flex-grow: 1; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; box-sizing: border-box; flex-grow: 1; }
         .alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 18px; font-weight: 500; }
         .alert.sucesso { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .alert.erro { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .info-box { background: #eef2ff; border: 1px solid #c7d2fe; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
-        .btn-backup { background: #28a745; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 20px; }
-        .btn-backup:hover { background: #1e7e34; }
-        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        th { background: #28a745; color: white; padding: 12px 16px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
-        td { padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 14px; }
-        tr:hover td { background: #f9fbf9; }
-        .sem-backup { text-align: center; color: #777; padding: 30px !important; font-style: italic; }
-        .btn-baixar { color: #1d4ed8; text-decoration: none; font-size: 13px; font-weight: 500; }
-        .btn-baixar:hover { text-decoration: underline; }
-        .btn-excluir { background: none; border: none; color: #b91c1c; font-size: 13px; font-weight: 500; cursor: pointer; padding: 0; }
-        .btn-excluir:hover { text-decoration: underline; }
-        .separador { margin: 0 6px; color: #aaa; }
+        .aviso-box { background: #fff3cd; border: 1px solid #ffc107; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
+        .form-restaurar { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 24px; }
+        .form-restaurar label { font-weight: 600; display: block; margin-bottom: 8px; }
+        .form-restaurar input[type="file"] { margin-bottom: 16px; font-size: 14px; }
+        .btn-restaurar { background: #e67e22; color: white; border: none; padding: 12px 22px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .btn-restaurar:hover { background: #cf711f; }
 
         @media (max-width: 768px) {
             body { display: block; padding-left: 0; }
@@ -46,8 +40,6 @@
             .mobile-topbar button { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
             .mobile-topbar span { font-size: 17px; font-weight: bold; }
             .overlay-menu.ativo { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 998; }
-            table { min-width: 520px; }
-            .tabela-scroll { overflow-x: auto; }
         }
     </style>
 </head>
@@ -74,7 +66,7 @@
     </aside>
 
     <div class="container">
-        <h2>💾 Backups do Banco de Dados</h2>
+        <h2>📥 Restaurar Backup</h2>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% for category, message in messages %}
@@ -83,55 +75,25 @@
         {% endwith %}
 
         <div class="info-box">
-            🔄 <strong>Backup automático diário</strong> às 03:00 (horário de Brasília). Os últimos
-            <strong>30 backups</strong> são mantidos — os mais antigos são apagados automaticamente.
-            <br><br>
-            ⚠️ No Render, os arquivos ficam no disco do serviço e são apagados a cada novo deploy.
-            Por isso, <strong>baixe os backups regularmente</strong> para guardar em outro lugar
-            (computador ou nuvem).
+            🔸 Escolha um arquivo de backup <strong>.sql</strong> gerado pela página
+            <strong>Backups</strong> (arquivos com os dados no formato do PostgreSQL).
         </div>
 
-        <form action="/backups" method="POST" onsubmit="return confirm('Criar um novo backup agora?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn-backup">📥 Criar Backup Agora</button>
+        <div class="aviso-box">
+            ⚠️ <strong>Atenção:</strong> restaurar um backup <strong>apaga todos os dados
+            atuais</strong> e substitui pelos dados do arquivo. Essa ação não pode ser desfeita.
+            Por segurança, gere/conserve um backup atual antes de continuar.
+        </div>
+
+        <form action="/restaurar-backup" method="POST" enctype="multipart/form-data" class="form-restaurar">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="arquivo">Arquivo de backup (.sql):</label>
+            <input type="file" id="arquivo" name="arquivo" accept=".sql" required>
+            <button type="submit" class="btn-restaurar" onclick="return confirm('Restaurar esse backup? Todos os dados atuais serão substituídos pelos dados do arquivo.')">Restaurar Backup</button>
         </form>
 
-        <div class="tabela-scroll">
-        <table>
-            <thead>
-                <tr>
-                    <th>Arquivo</th>
-                    <th>Data</th>
-                    <th>Tamanho</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for b in backups %}
-                <tr>
-                    <td><strong>{{ b.nome }}</strong></td>
-                    <td>{{ b.data.strftime('%d/%m/%Y %H:%M') }}</td>
-                    <td>{{ '{:.2f}'.format(b.tamanho / 1024) }} KB</td>
-                    <td>
-                        <a href="/backups/{{ b.nome }}/baixar" class="btn-baixar">Baixar</a>
-                        <span class="separador">/</span>
-                        <form action="/backups/{{ b.nome }}/excluir" method="POST" style="display:inline;" onsubmit="return confirm('Excluir o backup {{ b.nome }}?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn-excluir">Excluir</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" class="sem-backup">Nenhum backup gerado até o momento.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        </div>
-
-<br>
-        <a href="/restaurar-backup">📥 Restaurar backup a partir de um arquivo .sql</a>
-        &nbsp;&nbsp;|&nbsp;&nbsp;
-        <a href="/dashboard">← Voltar ao Dashboard</a>
+        <br>
+        <a href="/backups">← Voltar aos Backups</a>
     </div>
 
     <script>

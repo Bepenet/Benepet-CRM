@@ -47,6 +47,7 @@ def _carregar_secret_key():
 
 
 app.config['SECRET_KEY'] = _carregar_secret_key()
+app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024
 csrf = CSRFProtect(app)
 
 # Nomes "oficiais" dos produtos e variações já lançadas que devem ser somadas juntas
@@ -1537,6 +1538,36 @@ def excluir_backup(nome):
     if caminho.is_file() and caminho.parent == backup_mod.BACKUP_DIR.resolve():
         caminho.unlink()
         flash(f'Backup "{nome}" excluído.', 'sucesso')
+    return redirect(url_for('backups'))
+
+
+@app.route('/restaurar-backup', methods=['GET'])
+def restaurar_backup_form():
+    if not is_admin():
+        return redirect(url_for('login'))
+    return render_template('restaurar_backup.html')
+
+
+@app.route('/restaurar-backup', methods=['POST'])
+def restaurar_backup():
+    if not is_admin():
+        return redirect(url_for('login'))
+
+    arquivo = request.files.get('arquivo')
+    if not arquivo or not arquivo.filename:
+        flash('Selecione um arquivo de backup para restaurar.', 'erro')
+        return redirect(url_for('backups'))
+
+    texto = arquivo.read().decode('utf-8', errors='replace')
+    try:
+        total = backup_mod.restaurar_backup_dump(texto)
+    except Exception as e:
+        db.session.rollback()
+        print(f'Erro ao restaurar backup: {e}')
+        flash(f'Falha ao restaurar backup: {e}', 'erro')
+        return redirect(url_for('backups'))
+
+    flash(f'Backup restaurado com sucesso! {total} registro(s) importado(s).', 'sucesso')
     return redirect(url_for('backups'))
 
 

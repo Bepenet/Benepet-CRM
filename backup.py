@@ -1,9 +1,13 @@
+import io
 import json
 import os
+import re
 import sqlite3
 import subprocess
 from datetime import datetime
 from pathlib import Path
+
+from sqlalchemy import text
 
 from models import db
 
@@ -96,3 +100,150 @@ def rotacionar_backups(manter=MANTER_BACKUPS):
     )
     for antigo in backups[manter:]:
         antigo.unlink(missing_ok=True)
+
+
+DELIMITADOR_FIM_COPY = '\\.'
+_PADRAO_COPY = re.compile(r'^COPY\s+(\S+)\s+\(([^)]*)\)\s+FROM\s+stdin\s*;?$')
+
+
+def _decodificar_campo_copiar(campo):
+    """Converte um campo do formato COPY do pg_dump (\\N para nulo e escapes
+    como \\t, \\n) num valor Python bruto (str ou None)."""
+    if campo == r'\N':
+        return None
+    if campo == '':
+        return ''
+    mapa = {'\\': '\\', 't': '\t', 'n': '\n', 'r': '\r'}
+    saida = []
+    i = 0
+    while i < len(campo):
+        if campo[i] == '\\' and i + 1 < len(campo):
+            proximo = campo[i + 1]
+            saida.append(mapa.get(proximo, proximo))
+            i += 2
+        else:
+            saida.append(campo[i])
+            i += 1
+    return ''.join(saida)
+
+
+def _converter_valor(coluna, valor):
+    """Ajusta o valor bruto do COPY (string) para o tipo Python da coluna."""
+    if valor is None:
+        return None
+    tipo = coluna.type.python_type
+    if tipo is bool:
+        return valor in ('t', '1')
+    if tipo is int:
+        try:
+            return int(valor)
+        except ValueError:
+            return valor
+    if tipo is float:
+        try:
+            return float(valor)
+        except ValueError:
+            return valor
+    if tipo is datetime:
+        for formato in ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+            try:
+                return datetime.strptime(valor, formato)
+            except ValueError:
+                continue
+        return valor
+    return valor
+
+
+def analisar_dump(conteudo):
+    """Separa um dump do pg_dump em instruções SQL e blocos de dados COPY.
+
+    Devolve (instrucoes, blocos_copy), onde blocos_copy é uma lista de
+    (tabela, colunas, linhas)."""
+    instrucoes = []
+    blocos_copy = []
+    linhas = conteudo.splitlines()
+    i = 0
+    n = len(linhas)
+    while i < n:
+        atual = linhas[i].strip()
+        if not atual or atual.startswith('--') or atual.startswith('\\'):
+            i += 1
+            continue
+        match = _PADRAO_COPY.match(atual)
+        if match:
+            tabela = match.group(1).replace('"', '')
+            colunas = [c.strip().replace('"', '') for c in match.group(2).split(',')]
+            dados = []
+            i += 1
+            while i < n:
+                linha = linhas[i]
+                if linha == DELIMITADOR_FIM_COPY:
+                    i += 1
+                    break
+                if linha.endswith(DELIMITADOR_FIM_COPY):
+                    dados.append(linha[:-2])
+                    i += 1
+                    break
+                dados.append(linha)
+                i += 1
+            blocos_copy.append((tabela, colunas, dados))
+            continue
+        bloco = [linhas[i]]
+        i += 1
+        while i < n:
+            linha = linhas[i]
+            bloco.append(linha)
+            i += 1
+            if linha.rstrip().endswith(';'):
+                break
+        instrucoes.append('\n'.join(bloco))
+    return instrucoes, blocos_copy
+
+
+def restaurar_backup_dump(conteudo):
+    """Restaura um dump do pg_dump no banco atual, apagando os dados existentes.
+
+    Em PostgreSQL executa a estrutura e importa os blocos COPY pelo método
+    nativo. Em SQLite (testes/desenvolvimento) recria o esquema e importa os
+    dados via INSERT. Devolve o total de registros importados."""
+    instrucoes, blocos_copy = analisar_dump(conteudo)
+    dialeto = db.engine.dialect.name
+    total = 0
+
+    db.drop_all()
+    if dialeto == 'postgresql':
+        for instrucao in instrucoes:
+            if instrucao.strip():
+                db.session.execute(text(instrucao))
+        conexao = db.session.connection()
+        for tabela, colunas, linhas in blocos_copy:
+            if not linhas:
+                continue
+            dados = ''.join(linha + '\n' for linha in linhas)
+            cursor = conexao.connection.cursor()
+            cursor.copy_expert(
+                f'COPY {tabela} ({", ".join(colunas)}) FROM STDIN',
+                io.StringIO(dados),
+            )
+            total += len(linhas)
+    else:
+        db.create_all()
+        for tabela, colunas, linhas in blocos_copy:
+            nome = tabela.split('.')[-1]
+            if nome not in db.metadata.tables:
+                continue
+            tabela_modelo = db.metadata.tables[nome]
+            for linha in linhas:
+                valores = linha.split('\t')
+                registro = {}
+                for coluna_atual, valor in zip(colunas, valores):
+                    if coluna_atual not in tabela_modelo.columns:
+                        continue
+                    registro[coluna_atual] = _converter_valor(
+                        tabela_modelo.columns[coluna_atual],
+                        _decodificar_campo_copiar(valor),
+                    )
+                db.session.execute(tabela_modelo.insert().values(registro))
+                total += 1
+    db.session.commit()
+    return total
