@@ -7,7 +7,7 @@ from pathlib import Path
 
 from models import db
 
-BACKUP_DIR = Path('backups')
+BACKUP_DIR = Path('/data/backups') if os.path.isdir('/data') else Path('backups')
 MANTER_BACKUPS = int(os.environ.get('MANTER_BACKUPS', 30))
 
 

@@ -16,19 +16,30 @@ import backup as backup_mod
 app = Flask(__name__)
 
 
+def _pasta_dados():
+    """Diretório de dados persistentes.
+
+    Em produção (Render) usamos o disco persistente montado em /data; localmente,
+    a pasta instance/ do app. No Render free tudo que fica fora de /data vive no
+    disco efêmero e é perdido em todo reinício do serviço."""
+    if os.path.isdir('/data'):
+        return Path('/data')
+    return Path(app.instance_path)
+
+
 def _carregar_secret_key():
     """Chave de sessão: vem da variável de ambiente (SECRET_KEY) ou, como plano
     B, de um arquivo persistente local gerado na primeira execução."""
     chave = os.environ.get('SECRET_KEY')
     if chave:
         return chave
-    caminho = Path(app.instance_path) / 'secret_key'
+    caminho = _pasta_dados() / 'secret_key'
     try:
         return caminho.read_text(encoding='utf-8').strip()
     except OSError:
         nova = secrets.token_hex(32)
         try:
-            Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+            caminho.parent.mkdir(parents=True, exist_ok=True)
             caminho.write_text(nova, encoding='utf-8')
         except OSError:
             pass
@@ -192,7 +203,11 @@ def validar_e_normalizar_itens(itens):
 
     return itens_limpos, round(valor_total, 2)
 
-base_uri = os.environ.get('DATABASE_URL', 'sqlite:///petcrm.db')
+base_uri = os.environ.get('DATABASE_URL')
+if not base_uri and os.path.isdir('/data'):
+    base_uri = 'sqlite:////data/petcrm.db'
+if not base_uri:
+    base_uri = 'sqlite:///petcrm.db'
 
 if base_uri.startswith("postgres://"):
     base_uri = base_uri.replace("postgres://", "postgresql://", 1)
