@@ -458,14 +458,16 @@ def logout():
 def esqueci_senha():
     """Recuperação de senha sem login: exige o código RESET_KEY definido nas
     variáveis de ambiente (uma senha-mestra do próprio site)."""
-    reset_key = os.environ.get('RESET_KEY')
+    reset_key = (os.environ.get('RESET_KEY') or '').strip()
 
     if request.method == 'POST':
         codigo = (request.form.get('codigo') or '').strip()
         nova_senha = request.form.get('nova_senha')
         confirmar = request.form.get('confirmar_senha')
 
-        if not reset_key or codigo != reset_key:
+        if not reset_key:
+            flash('A recuperação não está ativada: variável RESET_KEY não detectada no servidor.', 'erro')
+        elif codigo.lower() != reset_key.lower():
             flash('Código de recuperação inválido.', 'erro')
         elif not nova_senha or len(nova_senha) < 4:
             flash('A nova senha precisa ter pelo menos 4 caracteres.', 'erro')
