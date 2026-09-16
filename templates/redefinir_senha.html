@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BENEPET - CRM</title>
+    <title>BENEPET - Recuperar Senha</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
     <style>
-        @media (max-width: 420px) {
-            .login-card { padding: 24px; max-width: 100%; margin: 0 16px; }
-        }
         .login-body {
             display: flex;
             justify-content: center;
@@ -19,7 +16,6 @@
             margin: 0;
             background-color: #f5f7fa;
         }
-        
         .login-card {
             background: white;
             padding: 40px;
@@ -30,26 +26,17 @@
             text-align: center;
             box-sizing: border-box;
         }
-
-        .login-logo {
-            max-width: 160px;
-            height: auto;
-            margin-bottom: 15px;
-        }
-
         .login-card h2 {
             font-size: 16px;
-            margin-bottom: 30px;
+            margin-bottom: 15px;
             color: #7f8c8d;
             font-weight: 500;
         }
-
         .login-form {
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
-
         .login-form input {
             width: 100%;
             padding: 12px;
@@ -58,7 +45,6 @@
             font-size: 15px;
             box-sizing: border-box;
         }
-
         .login-form button {
             background-color: #e74c3c;
             color: white;
@@ -71,17 +57,34 @@
             transition: background-color 0.2s;
             margin-top: 10px;
         }
-
         .login-form button:hover {
             background-color: #c0392b;
+        }
+        .link-voltar {
+            display: block;
+            margin-top: 15px;
+            color: #7f8c8d;
+            font-size: 14px;
+            text-decoration: none;
+        }
+        .link-voltar:hover {
+            text-decoration: underline;
+        }
+        .aviso-reset {
+            font-size: 13px;
+            color: #c0392b;
+            margin-bottom: 15px;
         }
     </style>
 </head>
 <body class="login-body">
 
     <div class="login-card">
-        <img src="{{ url_for('static', filename='LOGO.png') }}" alt="Logo BENEPET" class="login-logo">
-        <h2>Acesso ao sistema</h2>
+        <h2>Recuperar senha</h2>
+
+        {% if not reset_key_configured %}
+        <div class="aviso-reset">A recuperação não está ativada. Peça para definir a variável RESET_KEY nas configurações do serviço.</div>
+        {% endif %}
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -91,13 +94,14 @@
             {% endif %}
         {% endwith %}
 
-        <form action="/login" method="POST" class="login-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="text" name="usuario" placeholder="Usuário" required autofocus>
-            <input type="password" name="senha" placeholder="Senha" required>
-            <button type="submit">Entrar</button>
+        <form action="/esqueci-senha" method="POST" class="login-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="codigo" placeholder="Código de recuperação" required autofocus>
+            <input type="password" name="nova_senha" placeholder="Nova senha" required minlength="4">
+            <input type="password" name="confirmar_senha" placeholder="Confirmar nova senha" required minlength="4">
+            <button type="submit">Redefinir Senha</button>
         </form>
 
-        <a href="/esqueci-senha">Esqueci minha senha</a>
+        <a href="/login" class="link-voltar">Voltar para o login</a>
     </div>
 
 </body>

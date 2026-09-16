@@ -454,6 +454,37 @@ def logout():
     session.pop('usuario', None)
     return redirect(url_for('login'))
 
+@app.route('/esqueci-senha', methods=['GET', 'POST'])
+def esqueci_senha():
+    """Recuperação de senha sem login: exige o código RESET_KEY definido nas
+    variáveis de ambiente (uma senha-mestra do próprio site)."""
+    reset_key = os.environ.get('RESET_KEY')
+
+    if request.method == 'POST':
+        codigo = (request.form.get('codigo') or '').strip()
+        nova_senha = request.form.get('nova_senha')
+        confirmar = request.form.get('confirmar_senha')
+
+        if not reset_key or codigo != reset_key:
+            flash('Código de recuperação inválido.', 'erro')
+        elif not nova_senha or len(nova_senha) < 4:
+            flash('A nova senha precisa ter pelo menos 4 caracteres.', 'erro')
+        elif nova_senha != confirmar:
+            flash('As senhas não coincidem.', 'erro')
+        else:
+            usuarios = Usuario.query.order_by(Usuario.id).all()
+            if not usuarios:
+                usuarios = [Usuario(login='admin')]
+            for usuario in usuarios:
+                usuario.senha = generate_password_hash(nova_senha)
+                usuario.precisa_trocar_senha = False
+                db.session.add(usuario)
+            db.session.commit()
+            flash('Senha redefinida com sucesso! Entre com seu login e a nova senha.', 'sucesso')
+            return redirect(url_for('login'))
+
+    return render_template('redefinir_senha.html', reset_key_configured=bool(reset_key))
+
 @app.route('/trocar-senha', methods=['GET', 'POST'])
 def trocar_senha():
     if not usuario_esta_logado():
