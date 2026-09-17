@@ -189,7 +189,11 @@ def analisar_dump(conteudo):
             blocos_copy.append((tabela, colunas, dados))
             continue
         bloco = [linhas[i]]
+        primeira_linha = linhas[i].rstrip()
         i += 1
+        if primeira_linha.endswith(';'):
+            instrucoes.append('\n'.join(bloco))
+            continue
         while i < n:
             linha = linhas[i]
             bloco.append(linha)
@@ -258,6 +262,15 @@ def restaurar_backup_dump(conteudo):
     instrucoes, blocos_copy = analisar_dump(conteudo)
     dialeto = db.engine.dialect.name
     total = 0
+
+    tem_estrutura = any(
+        i.strip().upper().startswith('CREATE TABLE') for i in instrucoes
+    )
+    if not tem_estrutura or not blocos_copy:
+        raise ValueError(
+            'O arquivo não parece ser um dump SQL válido (sem tabelas/COPY). '
+            'Nenhum dado foi alterado — envie um backup gerado pela opção de backup.'
+        )
 
     if dialeto == 'postgresql':
         return _restaurar_dump_postgres(instrucoes, blocos_copy)

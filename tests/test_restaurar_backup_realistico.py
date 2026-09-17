@@ -172,3 +172,21 @@ def test_instrucao_para_ignorar():
         assert backup_mod._instrucao_para_ignorar(sql), f'deveria ignorar: {sql}'
     for sql in manter:
         assert not backup_mod._instrucao_para_ignorar(sql), f'deveria manter: {sql}'
+
+
+def test_analisar_dump_separa_instrucoes_consecutivas():
+    """Dois comandos de uma linha seguidos (sem linha em branco) não podem virar uma instrução só."""
+    import backup as backup_mod
+    dump = (
+        "SET statement_timeout = 0;\n"
+        "SET lock_timeout = 0;\n"
+        "SELECT pg_catalog.set_config('search_path', '', false);\n"
+        "CREATE TABLE public.cliente (id integer NOT NULL);\n"
+        "SELECT pg_catalog.setval('public.cliente_id_seq', 2, true);\n"
+        "SELECT pg_catalog.setval('public.vendedor_id_seq', 1, true);\n"
+    )
+    instrucoes, _ = backup_mod.analisar_dump(dump)
+    assert len(instrucoes) == 6, [i for i in instrucoes]
+    assert 'CREATE TABLE public.cliente' in instrucoes[3]
+    assert 'set_config' in instrucoes[2]
+    assert instrucoes[4].count('setval') == 1

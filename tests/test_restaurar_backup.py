@@ -49,3 +49,23 @@ def test_restaurar_backup_sem_arquivo_redireciona(client):
         'csrf_token': token,
     }, follow_redirects=False)
     assert resp.status_code == 302
+
+
+def test_restaurar_arquivo_invalido_nao_apaga_dados(client):
+    from conftest import post_com_csrf
+    login(client)
+    post_com_csrf(client, '/clientes', {
+        'nome': 'Cliente Importante',
+        'data_cadastro': '2026-01-01',
+    }, url_token='/dashboard')
+
+    token = obter_token_csrf(client, '/restaurar-backup')
+    resp = client.post('/restaurar-backup', data={
+        'arquivo': (io.BytesIO(b'isto nao e um dump sql de jeito nenhum'), 'garbage.txt'),
+        'csrf_token': token,
+    }, follow_redirects=True)
+
+    assert resp.status_code == 200
+    assert 'não parece ser um dump' in resp.get_data(as_text=True)
+    with client.application.app_context():
+        assert Cliente.query.filter_by(nome='Cliente Importante').first() is not None
