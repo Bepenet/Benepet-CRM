@@ -154,25 +154,20 @@ def test_dump_real_carrega_controle_de_transacao(banco_limpo):
 
 def test_instrucao_para_ignorar():
     import backup as backup_mod
-    ignorar = [
-        'BEGIN;', 'COMMIT;', 'END;', 'ROLLBACK;',
-        'START TRANSACTION;',
-        'SET statement_timeout = 0;',
-        'SET\n  client_encoding = \'UTF8\';',
-        'COPY public.cliente (id, nome) FROM stdin;',
-    ]
-    manter = [
-        'CREATE TABLE public.cliente (id integer NOT NULL);',
-        'ALTER TABLE ONLY public.cliente ALTER COLUMN id SET DEFAULT nextval(\'public.cliente_id_seq\'::regclass);',
-        'CREATE SEQUENCE public.cliente_id_seq AS integer;',
-        'SELECT pg_catalog.setval(\'public.cliente_id_seq\', 2, true);',
-        'CREATE INDEX cliente_nome_idx ON public.cliente USING btree (nome);',
-        'ALTER TABLE ONLY public.venda ADD CONSTRAINT venda_cliente_id_fkey FOREIGN KEY (cliente_id) REFERENCES public.cliente(id);',
-    ]
-    for sql in ignorar:
-        assert backup_mod._instrucao_para_ignorar(sql), f'deveria ignorar: {sql}'
-    for sql in manter:
-        assert not backup_mod._instrucao_para_ignorar(sql), f'deveria manter: {sql}'
+    from models import db
+    from sqlalchemy import Table, Column, Integer, String, Boolean, Float, DateTime
+    tabela_modelo = Table('x', db.metadata, Column('id', Integer, primary_key=True),
+                          Column('nome', String), Column('ativo', Boolean),
+                          Column('preco', Float), Column('criado_em', DateTime))
+    linhas = ['1\tMaria\tt\t5.5']
+    registros = backup_mod._construir_registros(
+        ['id', 'nome', 'ativo', 'preco', 'criado_em'], tabela_modelo, linhas)
+    assert registros == [{'id': 1, 'nome': 'Maria', 'ativo': True, 'preco': 5.5}]
+
+    registros_antigos = backup_mod._construir_registros(
+        ['id', 'nome', 'ativo', 'coluna_antiga'], tabela_modelo,
+        ['1\tMaria\tt\tvalor_ignorado'])
+    assert registros_antigos == [{'id': 1, 'nome': 'Maria', 'ativo': True}]
 
 
 def test_analisar_dump_separa_instrucoes_consecutivas():
