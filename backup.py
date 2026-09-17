@@ -227,6 +227,86 @@ def _construir_registros(colunas, tabela_modelo, linhas):
     return registros
 
 
+def _normalizar_blocos_copy(blocos_copy):
+    """Agrupa os blocos COPY por tabela (nome simples), na ordem do dump."""
+    por_tabela = {}
+    for tabela, colunas, linhas in blocos_copy:
+        nome = tabela.split('.')[-1]
+        por_tabela.setdefault(nome, []).append((colunas, linhas))
+    return por_tabela
+
+
+def _filtrar_registros_orfãos(registros, tabela_modelo, ids_importados):
+    """Remove registros cuja FK aponta para um pai que não foi importado.
+
+    ids_importados é o mapa tabela -> ids efetivamente importados até aqui (na
+    ordem de dependência). Referências nulas são mantidas; referência a um id
+    ausente (ou a uma tabela-pai sem nenhum registro importado) é descartada,
+    em vez de quebrar a restauração com um ForeignKeyViolation."""
+    filtrados = registros
+    for coluna in tabela_modelo.columns:
+        if not coluna.foreign_keys:
+            continue
+        fk = next(iter(coluna.foreign_keys))
+        ids_pai = ids_importados.get(fk.column.table.name, set())
+        filtrados = [
+            r for r in filtrados
+            if r.get(coluna.name) is None or r[coluna.name] in ids_pai
+        ]
+    return filtrados
+
+
+def _ordem_por_dependencia(nomes):
+    """Ordena as tabelas para os pais serem inseridos antes dos filhos."""
+    dependencias = {}
+    for nome in nomes:
+        tabela = db.metadata.tables.get(nome)
+        deps = set()
+        if tabela is not None:
+            for coluna in tabela.columns:
+                for fk in coluna.foreign_keys:
+                    pai = fk.column.table.name
+                    if pai in nomes and pai != nome:
+                        deps.add(pai)
+        dependencias[nome] = deps
+    ordem = []
+    restantes = set(nomes)
+    while restantes:
+        prontas = {n for n in restantes if not (dependencias[n] & restantes)}
+        if not prontas:
+            prontas = restantes
+        ordem.extend(sorted(prontas))
+        restantes -= prontas
+    return ordem
+
+
+def _preparar_importacao(por_tabela):
+    """Prepara (tabela, registros) na ordem de dependência, descartando órfãos.
+
+    Processa os pais antes dos filhos e recalcula os ids importados a cada
+    passo, então um registro que aponta (mesmo que em cadeia) para um pai
+    descartado também é removido. Devolve (preparado, descartados)."""
+    ids_importados = {}
+    preparado = []
+    descartados = 0
+    for nome in _ordem_por_dependencia(list(por_tabela)):
+        if nome not in db.metadata.tables:
+            continue
+        modelo = db.metadata.tables[nome]
+        registros = []
+        for colunas, linhas in por_tabela[nome]:
+            if linhas:
+                registros.extend(_construir_registros(colunas, modelo, linhas))
+        if registros:
+            antes = len(registros)
+            registros = _filtrar_registros_orfãos(registros, modelo, ids_importados)
+            descartados += antes - len(registros)
+        ids_importados[nome] = {r['id'] for r in registros if r.get('id') is not None}
+        if registros:
+            preparado.append((nome, registros))
+    return preparado, descartados
+
+
 def _ajustar_sequencias(conn):
     """Após importar dados com IDs explícitos, adianta as sequências de cada
     tabela para o maior id, evitando conflito nos próximos lançamentos."""
@@ -255,7 +335,9 @@ def _restaurar_dump_postgres(instrucoes, blocos_copy):
     os dados (blocos COPY) são importados, casando colunas por nome. Isso
     evita problemas de privilégios (ALTER DEFAULT PRIVILEGES/OWNER), de versão
     do Postgres e de colunas que mudaram. Tudo roda numa única transação: se
-    qualquer passo falhar, o banco volta ao estado anterior intacto.
+    qualquer passo falhar, o banco volta ao estado anterior intacto. Registros
+    órfãos (FK para id ausente no próprio dump) são descartados e os pais são
+    importados antes dos filhos.
     Devolve o total de registros importados."""
     total = 0
     with db.engine.begin() as conn:
@@ -263,14 +345,11 @@ def _restaurar_dump_postgres(instrucoes, blocos_copy):
         conn.execute(text('SET lock_timeout = 30000'))
         db.metadata.drop_all(bind=conn)
         db.metadata.create_all(bind=conn)
-        for tabela, colunas, linhas in blocos_copy:
-            nome = tabela.split('.')[-1]
-            if not linhas or nome not in db.metadata.tables:
-                continue
-            registros = _construir_registros(colunas, db.metadata.tables[nome], linhas)
-            if registros:
-                conn.execute(db.metadata.tables[nome].insert().values(registros))
-                total += len(registros)
+        por_tabela = _normalizar_blocos_copy(blocos_copy)
+        preparado, _descartados = _preparar_importacao(por_tabela)
+        for nome, registros in preparado:
+            conn.execute(db.metadata.tables[nome].insert().values(registros))
+            total += len(registros)
         _ajustar_sequencias(conn)
     db.create_all()
     return total
@@ -281,7 +360,9 @@ def restaurar_backup_dump(conteudo):
 
     O esquema é recriado a partir dos modelos atuais e só os DADOS (blocos COPY)
     são importados, casando colunas por nome. Em PostgreSQL tudo roda numa única
-    transação atômica. Devolve o total de registros importados."""
+    transação atômica. Registros órfãos (FK para id ausente no próprio dump) são
+    descartados e os pais são importados antes dos filhos.
+    Devolve o total de registros importados."""
     instrucoes, blocos_copy = analisar_dump(conteudo)
     dialeto = db.engine.dialect.name
     total = 0
@@ -300,13 +381,12 @@ def restaurar_backup_dump(conteudo):
 
     db.drop_all()
     db.create_all()
-    for tabela, colunas, linhas in blocos_copy:
-        nome = tabela.split('.')[-1]
-        if not linhas or nome not in db.metadata.tables:
-            continue
-        registros = _construir_registros(colunas, db.metadata.tables[nome], linhas)
+    por_tabela = _normalizar_blocos_copy(blocos_copy)
+    preparado, _descartados = _preparar_importacao(por_tabela)
+    for nome, registros in preparado:
+        tabela = db.metadata.tables[nome]
         for registro in registros:
-            db.session.execute(db.metadata.tables[nome].insert().values(registro))
+            db.session.execute(tabela.insert().values(registro))
             total += 1
     db.session.commit()
     return total

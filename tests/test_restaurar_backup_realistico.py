@@ -1,7 +1,7 @@
 import io
 
 from conftest import login, obter_token_csrf
-from models import Cliente, Venda, Vendedor, Usuario
+from models import Cliente, Venda, Vendedor, Usuario, Prospeccao, HistoricoProspeccao
 
 DUMP_REALISTA = r"""\
 -- PostgreSQL database dump
@@ -168,6 +168,63 @@ def test_instrucao_para_ignorar():
         ['id', 'nome', 'ativo', 'coluna_antiga'], tabela_modelo,
         ['1\tMaria\tt\tvalor_ignorado'])
     assert registros_antigos == [{'id': 1, 'nome': 'Maria', 'ativo': True}]
+
+
+DUMP_COM_ORFAO = r"""\
+-- PostgreSQL database dump
+CREATE TABLE public.cliente (
+    id integer NOT NULL,
+    nome character varying(100) NOT NULL,
+    data_cadastro timestamp without time zone NOT NULL
+);
+CREATE TABLE public.prospeccao (
+    id integer NOT NULL,
+    nome character varying(100) NOT NULL,
+    status character varying(30),
+    data_cadastro timestamp without time zone NOT NULL,
+    cliente_id integer
+);
+CREATE TABLE public.historico_prospeccao (
+    id integer NOT NULL,
+    prospeccao_id integer NOT NULL,
+    data timestamp without time zone NOT NULL,
+    tipo character varying(50),
+    descricao text NOT NULL
+);
+COPY public.cliente (id, nome, data_cadastro) FROM stdin;
+1	Atacado Pet	2026-06-01 10:00:00
+2	Petshop do Bairro	2026-07-01 10:00:00
+\.
+COPY public.prospeccao (id, nome, status, data_cadastro, cliente_id) FROM stdin;
+1	Billy Nick	Em andamento	2026-08-01 10:00:00	1
+2	Super Pet	Negociação	2026-08-02 10:00:00	1
+\.
+COPY public.historico_prospeccao (id, prospeccao_id, data, tipo, descricao) FROM stdin;
+1	1	2026-08-03 00:00:00	WhatsApp	Amostra entregue
+2	15	2026-08-03 00:00:00	WhatsApp	Prospecção que já não existe no dump
+3	2	2026-08-06 00:00:00	WhatsApp	Retorno da amostra
+\.
+"""
+
+
+def test_restaurar_dump_com_orfao_descarta_historicos(client):
+    """Histórico apontando para prospecção ausente no dump não pode quebrar a
+    restauração: a linha é descartada e as demais são importadas."""
+    login(client)
+    token = obter_token_csrf(client, '/restaurar-backup')
+    resp = client.post('/restaurar-backup', data={
+        'arquivo': (io.BytesIO(DUMP_COM_ORFAO.encode('utf-8')), 'backup_orfao.sql'),
+        'csrf_token': token,
+    }, follow_redirects=True)
+
+    assert resp.status_code == 200
+    assert b'Backup restaurado com sucesso' in resp.data, resp.data[-2000:]
+    with client.application.app_context():
+        assert Prospeccao.query.count() == 2
+        assert HistoricoProspeccao.query.count() == 2
+        assert HistoricoProspeccao.query.filter_by(prospeccao_id=15).first() is None
+        assert HistoricoProspeccao.query.filter_by(prospeccao_id=1).first() is not None
+        assert HistoricoProspeccao.query.filter_by(prospeccao_id=2).first() is not None
 
 
 def test_analisar_dump_separa_instrucoes_consecutivas():
