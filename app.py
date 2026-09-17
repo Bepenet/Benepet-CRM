@@ -1559,6 +1559,7 @@ def restaurar_backup():
         return redirect(url_for('backups'))
 
     texto = arquivo.read().decode('utf-8', errors='replace')
+    db.session.remove()
     try:
         total = backup_mod.restaurar_backup_dump(texto)
         garantir_colunas_novas()
