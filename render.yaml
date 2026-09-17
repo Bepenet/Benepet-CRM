@@ -3,7 +3,7 @@ services:
     name: benepet-crm
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --timeout 120 --threads 4
     disk:
       name: dados-petcrm
       mountPath: /data

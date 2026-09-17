@@ -159,6 +159,7 @@ def test_instrucao_para_ignorar():
         'START TRANSACTION;',
         'SET statement_timeout = 0;',
         'SET\n  client_encoding = \'UTF8\';',
+        'COPY public.cliente (id, nome) FROM stdin;',
     ]
     manter = [
         'CREATE TABLE public.cliente (id integer NOT NULL);',

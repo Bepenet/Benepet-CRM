@@ -205,12 +205,16 @@ def analisar_dump(conteudo):
 
 
 def _instrucao_para_ignorar(texto_sql):
-    """True para comandos de controle do próprio dump (transação/configuração)
-    que não devem ser executados de novo: BEGIN/COMMIT/END/ROLLBACK e SETs."""
+    """True para comandos que não devem ser re-executados de novo:
+
+    - Controle de transação/configuração do próprio dump (BEGIN/COMMIT/END/ROLLBACK, SETs):
+      o servidor já está na transação gerenciada pelo nosso código;
+    - QUALQUER comando COPY: executá-lo via execute() bloquearia esperando dados
+      no stdin (travamento). Blocos COPY legítimos já são importados à parte."""
     limpo = ' '.join(texto_sql.split()).rstrip(';').strip().upper()
     if limpo in ('BEGIN', 'COMMIT', 'END', 'ROLLBACK', 'START TRANSACTION'):
         return True
-    return limpo.startswith('SET ')
+    return limpo.startswith('SET ') or limpo.startswith('COPY')
 
 
 def _executar_instrucoes_dump(conn, instrucoes):
@@ -236,6 +240,8 @@ def _restaurar_dump_postgres(instrucoes, blocos_copy):
     Devolve o total de registros importados."""
     total = 0
     with db.engine.begin() as conn:
+        conn.execute(text('SET statement_timeout = 300000'))
+        conn.execute(text('SET lock_timeout = 30000'))
         db.metadata.drop_all(bind=conn)
         _executar_instrucoes_dump(conn, instrucoes)
         for tabela, colunas, linhas in blocos_copy:
