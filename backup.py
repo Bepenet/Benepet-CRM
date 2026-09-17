@@ -242,7 +242,10 @@ def _ajustar_sequencias(conn):
         maior = conn.execute(
             text(f'SELECT COALESCE(MAX(id), 0) FROM public."{nome}"'),
         ).scalar() or 0
-        conn.execute(text('SELECT setval(:seq, :maior)'), {'seq': seq, 'maior': maior})
+        if not maior:
+            continue
+        conn.execute(text('SELECT setval(:seq, :maior, true)'),
+                     {'seq': seq, 'maior': maior})
 
 
 def _restaurar_dump_postgres(instrucoes, blocos_copy):
