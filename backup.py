@@ -200,50 +200,86 @@ def analisar_dump(conteudo):
     return instrucoes, blocos_copy
 
 
-def restaurar_backup_dump(conteudo):
-    """Restaura um dump do pg_dump no banco atual, apagando os dados existentes.
+def _instrucao_para_ignorar(texto_sql):
+    """True para comandos de controle do próprio dump (transação/configuração)
+    que não devem ser executados de novo: BEGIN/COMMIT/END/ROLLBACK e SETs."""
+    limpo = ' '.join(texto_sql.split()).rstrip(';').strip().upper()
+    if limpo in ('BEGIN', 'COMMIT', 'END', 'ROLLBACK', 'START TRANSACTION'):
+        return True
+    return limpo.startswith('SET ')
 
-    Em PostgreSQL executa a estrutura e importa os blocos COPY pelo método
-    nativo. Em SQLite (testes/desenvolvimento) recria o esquema e importa os
-    dados via INSERT. Devolve o total de registros importados."""
-    instrucoes, blocos_copy = analisar_dump(conteudo)
-    dialeto = db.engine.dialect.name
+
+def _executar_instrucoes_dump(conn, instrucoes):
+    """Executa as instruções SQL de estrutura do dump na conexão fornecida.
+
+    Instruções que devolvem linhas (ex.: SELECT pg_catalog.setval) têm o
+    resultado consumido na hora, para não deixar resultados pendentes que
+    travem o próximo comando (copy_expert) na mesma conexão."""
+    for instrucao in instrucoes:
+        texto_sql = instrucao.strip()
+        if not texto_sql or _instrucao_para_ignorar(texto_sql):
+            continue
+        resultado = conn.execute(text(texto_sql))
+        if getattr(resultado, 'returns_rows', False):
+            resultado.fetchall()
+
+
+def _restaurar_dump_postgres(instrucoes, blocos_copy):
+    """Restaura um dump do pg_dump no PostgreSQL de forma atômica.
+
+    Tudo roda numa única transação: se qualquer passo falhar, o banco volta
+    ao estado anterior intacto (o `DROP` dos dados atuais também é revertido).
+    Devolve o total de registros importados."""
     total = 0
-
-    db.drop_all()
-    if dialeto == 'postgresql':
-        for instrucao in instrucoes:
-            if instrucao.strip():
-                db.session.execute(text(instrucao))
-        conexao = db.session.connection()
+    with db.engine.begin() as conn:
+        db.metadata.drop_all(bind=conn)
+        _executar_instrucoes_dump(conn, instrucoes)
         for tabela, colunas, linhas in blocos_copy:
             if not linhas:
                 continue
             dados = ''.join(linha + '\n' for linha in linhas)
-            cursor = conexao.connection.cursor()
+            cursor = conn.connection.cursor()
             cursor.copy_expert(
                 f'COPY {tabela} ({", ".join(colunas)}) FROM STDIN',
                 io.StringIO(dados),
             )
             total += len(linhas)
-    else:
-        db.create_all()
-        for tabela, colunas, linhas in blocos_copy:
-            nome = tabela.split('.')[-1]
-            if nome not in db.metadata.tables:
-                continue
-            tabela_modelo = db.metadata.tables[nome]
-            for linha in linhas:
-                valores = linha.split('\t')
-                registro = {}
-                for coluna_atual, valor in zip(colunas, valores):
-                    if coluna_atual not in tabela_modelo.columns:
-                        continue
-                    registro[coluna_atual] = _converter_valor(
-                        tabela_modelo.columns[coluna_atual],
-                        _decodificar_campo_copiar(valor),
-                    )
-                db.session.execute(tabela_modelo.insert().values(registro))
-                total += 1
+    db.create_all()
+    return total
+
+
+def restaurar_backup_dump(conteudo):
+    """Restaura um dump do pg_dump no banco atual, apagando os dados existentes.
+
+    Em PostgreSQL executa a estrutura e importa os blocos COPY pelo método
+    nativo, numa única transação. Em SQLite (testes/desenvolvimento) recria o
+    esquema e importa os dados via INSERT. Devolve o total de registros
+    importados."""
+    instrucoes, blocos_copy = analisar_dump(conteudo)
+    dialeto = db.engine.dialect.name
+    total = 0
+
+    if dialeto == 'postgresql':
+        return _restaurar_dump_postgres(instrucoes, blocos_copy)
+
+    db.drop_all()
+    db.create_all()
+    for tabela, colunas, linhas in blocos_copy:
+        nome = tabela.split('.')[-1]
+        if nome not in db.metadata.tables:
+            continue
+        tabela_modelo = db.metadata.tables[nome]
+        for linha in linhas:
+            valores = linha.split('\t')
+            registro = {}
+            for coluna_atual, valor in zip(colunas, valores):
+                if coluna_atual not in tabela_modelo.columns:
+                    continue
+                registro[coluna_atual] = _converter_valor(
+                    tabela_modelo.columns[coluna_atual],
+                    _decodificar_campo_copiar(valor),
+                )
+            db.session.execute(tabela_modelo.insert().values(registro))
+            total += 1
     db.session.commit()
     return total
