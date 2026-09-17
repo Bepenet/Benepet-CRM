@@ -458,6 +458,43 @@
             </table>
         </div>
 
+        {% elif tipo == 'quantidade_produtos' %}
+        <div class="data-section">
+            <h3 class="section-title">📦 Quantidade de Produtos Vendidos - {{ rotulo_periodo }}</h3>
+            <div class="resumo">
+                <div class="resumo-item">
+                    <span>Total de Itens Vendidos</span>
+                    <strong>{{ total_produtos }}</strong>
+                </div>
+                <div class="resumo-item">
+                    <span>Valor Total</span>
+                    <strong>R$ {{ total_produtos_valor }}</strong>
+                </div>
+            </div>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>Quantidade</th>
+                        <th>Valor Vendido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for produto, dados in produtos_resumo %}
+                    <tr>
+                        <td style="font-weight: 600; color: #0f172a;">{{ produto }}</td>
+                        <td><span class="badge">{{ dados.quantidade_fmt }}</span></td>
+                        <td style="font-weight: 700;">R$ {{ dados.valor_fmt }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="aviso-vazio">Nenhum produto vendido no período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         {% elif tipo == 'historico_matriz' %}
         <div class="data-section">
             <h3 class="section-title">📊 Histórico de Vendas por Vendedor/Cliente - {{ ano }}</h3>
@@ -557,9 +594,9 @@
 
     function atualizarFiltros() {
         var tipo = document.getElementById('relatorio').value;
-        var usaPeriodo = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_cliente', 'vendas_por_mes', 'comissao'].indexOf(tipo) !== -1;
+        var usaPeriodo = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_cliente', 'vendas_por_mes', 'quantidade_produtos', 'comissao'].indexOf(tipo) !== -1;
         var usaMatriz = tipo === 'historico_matriz';
-        var usaVendedor = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_mes', 'comissao', 'historico_matriz'].indexOf(tipo) !== -1;
+        var usaVendedor = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_mes', 'quantidade_produtos', 'comissao', 'historico_matriz'].indexOf(tipo) !== -1;
         var usaCliente = tipo === 'vendas_por_cliente';
 
         document.getElementById('grupo-periodo').style.display = usaPeriodo ? 'flex' : 'none';

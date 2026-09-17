@@ -571,6 +571,7 @@ def relatorios():
         'vendas_por_vendedor': 'Vendas por Vendedor',
         'vendas_por_cliente': 'Vendas por Cliente',
         'vendas_por_mes': 'Vendas por Mês',
+        'quantidade_produtos': 'Quantidade de Produtos/Mês',
         'comissao': 'Comissão de Vendedores',
         'historico_matriz': 'Histórico de Vendas (Matriz)',
         'proximo_contato': 'Próximo Contato',
@@ -680,6 +681,35 @@ def relatorios():
             dados['label'] = f"{meses_pt[chave[1]]}/{chave[0]}"
         contexto['meses_resumo'] = sorted(totais.items(), key=lambda item: item[0], reverse=True)
 
+    elif tipo == 'quantidade_produtos':
+        consulta = db.session.query(
+            ItemVenda.produto,
+            ItemVenda.quantidade,
+            ItemVenda.valor_subtotal,
+        ).join(Venda, ItemVenda.venda_id == Venda.id)\
+            .filter(Venda.status == 'Confirmada')\
+            .filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))
+        if vendedor_filtro:
+            consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
+        totais_por_produto = {}
+        for produto, quantidade, subtotal in consulta.all():
+            canonico = nome_canonico_produto(produto)
+            dados = totais_por_produto.setdefault(canonico, {'quantidade': 0, 'valor': 0.0})
+            dados['quantidade'] += int(quantidade or 0)
+            dados['valor'] += subtotal or 0
+        for dados in totais_por_produto.values():
+            dados['quantidade_fmt'] = '{:,}'.format(dados['quantidade']).replace(',', '.')
+            dados['valor_fmt'] = formatar_moeda(dados['valor'])
+        contexto['produtos_resumo'] = sorted(
+            totais_por_produto.items(),
+            key=lambda item: item[1]['quantidade'],
+            reverse=True,
+        )
+        contexto['total_produtos'] = sum(d['quantidade'] for d in totais_por_produto.values())
+        contexto['total_produtos_valor'] = formatar_moeda(
+            sum(d['valor'] for d in totais_por_produto.values())
+        )
+
     elif tipo == 'comissao':
         consulta = Venda.query.filter(
             Venda.paga.is_(True),
@@ -776,6 +806,12 @@ def relatorio_vendas_por_mes():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
     return redirect(url_for('relatorios', relatorio='vendas_por_mes'))
+
+@app.route('/relatorios/quantidade-produtos')
+def relatorio_quantidade_produtos():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+    return redirect(url_for('relatorios', relatorio='quantidade_produtos'))
 
 @app.route('/relatorios/historico-vendas')
 def relatorio_historico_vendas():
