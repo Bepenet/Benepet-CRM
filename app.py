@@ -1561,6 +1561,9 @@ def restaurar_backup():
     texto = arquivo.read().decode('utf-8', errors='replace')
     try:
         total = backup_mod.restaurar_backup_dump(texto)
+        garantir_colunas_novas()
+        vincular_vendedores_existentes()
+        db.session.commit()
     except Exception as e:
         db.session.rollback()
         print(f'Erro ao restaurar backup: {e}')
