@@ -518,6 +518,8 @@ def dashboard():
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
+    hoje = agora_brasil()
+
     try:
         clientes_total = Cliente.query.count()
         vendas_total = Venda.query.filter_by(status='Confirmada').count()
@@ -543,12 +545,40 @@ def dashboard():
             dados['valor_fmt'] = formatar_moeda(dados['valor'])
 
         valor_total_vendido_fmt = formatar_moeda(valor_total_vendido)
+
+        data_efetiva = func.coalesce(Venda.data_confirmacao, Venda.data)
+        ano_expr = func.extract('year', data_efetiva)
+        mes_expr = func.extract('month', data_efetiva)
+        linhas_mensais = db.session.query(
+            ano_expr.label('ano'),
+            mes_expr.label('mes'),
+            func.sum(Venda.valor_total).label('valor'),
+        ).filter(Venda.status == 'Confirmada').group_by(ano_expr, mes_expr).all()
+        totais_mensais = {(int(l.ano), int(l.mes)): (l.valor or 0) for l in linhas_mensais}
+
+        nomes_curtos = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                        'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+        serie_meses = []
+        serie_valores = []
+        for offset in range(11, -1, -1):
+            idx = hoje.month - offset - 1
+            ano_m = hoje.year + (idx // 12)
+            mes_m = idx % 12 + 1
+            serie_meses.append(f"{nomes_curtos[mes_m - 1]}/{str(ano_m)[2:]}")
+            serie_valores.append(round(totais_mensais.get((ano_m, mes_m), 0), 2))
+
+        top_produtos_nomes = [p for p, _ in vendido_por_produto[:10]]
+        top_produtos_valores = [round(d['valor'], 2) for _, d in vendido_por_produto[:10]]
     except Exception as e:
         clientes_total, vendas_total, total_contatos_pendentes, total_consignacoes_pendentes = 0, 0, 0, 0
         total_prospeccoes = 0
         valor_total_vendido = 0
         valor_total_vendido_fmt = formatar_moeda(0)
         vendido_por_produto = []
+        serie_meses = []
+        serie_valores = []
+        top_produtos_nomes = []
+        top_produtos_valores = []
 
     return render_template('dashboard.html',
                            clientes_total=clientes_total,
@@ -559,6 +589,10 @@ def dashboard():
                            valor_total_vendido=valor_total_vendido,
                            valor_total_vendido_fmt=valor_total_vendido_fmt,
                            vendido_por_produto=vendido_por_produto,
+                           serie_meses=serie_meses,
+                           serie_valores=serie_valores,
+                           top_produtos_nomes=top_produtos_nomes,
+                           top_produtos_valores=top_produtos_valores,
                            usuario_logado=session['usuario'])
 
 @app.route('/relatorios')
