@@ -1553,7 +1553,7 @@ def agendar_backup_automatico():
 
 
 def iniciar_agendador_backups():
-    """Inicia o backup automático diário (03:00, horário de Brasília).
+    """Inicia o backup automático diário (09:00, horário de Brasília).
 
     No Flask em modo debug, o reloader roda o módulo duas vezes; o WERKZEUG_RUN_MAIN
     garante que o agendador só inicie no processo real. No gunicorn (Render) o módulo
@@ -1564,7 +1564,7 @@ def iniciar_agendador_backups():
     if app.debug and os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
         return
     agendador = BackgroundScheduler(timezone='America/Sao_Paulo')
-    agendador.add_job(agendar_backup_automatico, 'cron', hour=3, minute=0)
+    agendador.add_job(agendar_backup_automatico, 'cron', hour=9, minute=0)
     agendador.start()
 
 

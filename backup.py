@@ -11,7 +11,8 @@ from sqlalchemy import text
 
 from models import db
 
-BACKUP_DIR = Path('/data/backups') if os.path.isdir('/data') else Path('backups')
+BACKUP_DIR = Path(os.environ.get('BACKUP_DIR')
+                  or ('/data/backups' if os.path.isdir('/data') else 'backups'))
 MANTER_BACKUPS = int(os.environ.get('MANTER_BACKUPS', 30))
 
 
