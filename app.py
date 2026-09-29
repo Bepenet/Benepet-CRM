@@ -1143,6 +1143,24 @@ def alternar_admin_usuario(id):
     flash(f'Papel de {alvo.login} atualizado.', 'sucesso')
     return redirect(url_for('usuarios'))
 
+@app.route('/usuarios/<int:id>/senha-inicial', methods=['POST'])
+def definir_senha_inicial_usuario(id):
+    if not is_admin():
+        flash('Acesso restrito apenas para o administrador!', 'erro')
+        return redirect(url_for('dashboard'))
+
+    alvo = Usuario.query.get_or_404(id)
+    senha_inicial = (request.form.get('senha_inicial') or '').strip()
+
+    if len(senha_inicial) < 4:
+        flash('A senha inicial precisa ter pelo menos 4 caracteres.', 'erro')
+    else:
+        alvo.senha = generate_password_hash(senha_inicial)
+        alvo.precisa_trocar_senha = True
+        db.session.commit()
+        flash(f'Senha inicial de {alvo.login} definida! O usuário deverá trocá-la no primeiro acesso.', 'sucesso')
+    return redirect(url_for('usuarios'))
+
 @app.route('/salvar_venda_multipla', methods=['POST'])
 def salvar_venda_multipla():
     if not usuario_esta_logado():
