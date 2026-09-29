@@ -431,15 +431,33 @@ def index():
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
+def buscar_usuario_por_login(login):
+    """Localiza o usuário ignorando espaços em branco no início/fim do login.
+
+    Aceita tanto o espaço digitado por engano na tela de login ("Fernanda ")
+    quanto o espaço que tenha ficado salvo no cadastro antigo do usuário."""
+    alvo = (login or '').strip()
+    if not alvo:
+        return None
+
+    user = Usuario.query.filter_by(login=alvo).first()
+    if user:
+        return user
+
+    for candidato in Usuario.query.filter(Usuario.login.isnot(None)).all():
+        if (candidato.login or '').strip() == alvo:
+            return candidato
+    return None
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        usuario = request.form.get('usuario')
+        usuario = request.form.get('usuario') or ''
         senha = request.form.get('senha')
 
         try:
-            user = Usuario.query.filter_by(login=usuario).first()
-            if user and check_password_hash(user.senha, senha):
+            user = buscar_usuario_por_login(usuario)
+            if user and check_password_hash(user.senha, senha or ''):
                 session['usuario'] = user.login
                 return redirect(url_for('dashboard'))
             else:
@@ -1107,7 +1125,7 @@ def usuarios():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
-        novo_login = request.form.get('usuario')
+        novo_login = (request.form.get('usuario') or '').strip()
         nova_senha = request.form.get('senha')
         eh_admin = bool(request.form.get('admin'))
 
