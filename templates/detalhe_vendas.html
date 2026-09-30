@@ -168,7 +168,70 @@
             <p><strong>Vendedor:</strong> {{ venda.vendedor or '-' }}</p>
             <p><strong>Valor Total:</strong> R$ {{ "%.2f"|format(venda.valor_total) }}</p>
 
-            <div style="margin-top: 20px; padding: 18px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+<div style="margin-top: 20px; padding: 18px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                {% if venda.parcelas %}
+                <p style="margin-bottom: 6px; font-weight: 600; color: #333;">
+                    Pagamento das Parcelas:
+                    {% if venda.paga %}
+                        <span class="status-venda" style="margin-left: 8px;">Quitada em {{ venda.data_pagamento.strftime('%d/%m/%Y') }}</span>
+                    {% else %}
+                        <span class="status-pendente" style="margin-left: 8px;">{{ venda.parcelas_pendentes }} de {{ venda.parcelas|length }} em aberto — R$ {{ venda.valor_em_aberto | moeda }}</span>
+                    {% endif %}
+                </p>
+                <p style="margin-bottom: 12px; font-size: 13px; color: #666;">
+                    A venda só é marcada como paga quando todas as parcelas forem quitadas.
+                </p>
+
+                <div class="tabela-scroll">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #e9ecef; text-align: left;">
+                            <th style="padding: 8px;">Parcela</th>
+                            <th style="padding: 8px;">Vencimento</th>
+                            <th style="padding: 8px;">Valor</th>
+                            <th style="padding: 8px;">Situação</th>
+                            <th style="padding: 8px;">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for parcela in venda.parcelas %}
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 8px;">{{ parcela.numero }}/{{ venda.parcelas|length }}</td>
+                            <td style="padding: 8px;">{{ parcela.vencimento.strftime('%d/%m/%Y') }}</td>
+                            <td style="padding: 8px;">R$ {{ parcela.valor | moeda }}</td>
+                            <td style="padding: 8px;">
+                                {% if parcela.paga %}
+                                    <span class="status-venda">Paga em {{ parcela.data_pagamento.strftime('%d/%m/%Y') }}</span>
+                                {% elif parcela.vencida %}
+                                    <span class="status-pendente">Vencida há {{ parcela.dias_atraso }} dia{{ 's' if parcela.dias_atraso != 1 else '' }}</span>
+                                {% else %}
+                                    <span class="status-pendente">A vencer</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 8px;">
+                                {% if parcela.paga %}
+                                    <form action="/parcelas/{{ parcela.id }}/reverter" method="POST" style="display:inline;" onsubmit="return confirm('Reverter a baixa da parcela {{ parcela.numero }}?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn-excluir" style="font-size: 13px;">↩ Reverter</button>
+                                    </form>
+                                {% else %}
+                                    <form action="/parcelas/{{ parcela.id }}/baixar" method="POST" style="display:flex; align-items:center; gap: 8px; flex-wrap: wrap;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="date" name="data_pagamento" value="{{ hoje.strftime('%Y-%m-%d') }}" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;">
+                                        <button type="submit" class="btn-ver" style="background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: underline; padding: 0;">✓ Baixar</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f8f9fa; font-weight: bold;">
+                            <td colspan="2" style="padding: 10px;">Total parcelado</td>
+                            <td colspan="3" style="padding: 10px;">R$ {{ venda.valor_parcelado | moeda }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+                </div>
+                {% else %}
                 <p style="margin-bottom: 12px; font-weight: 600; color: #333;">
                     Pagamento do Boleto:
                     {% if venda.paga %}
@@ -188,6 +251,7 @@
                         <input type="date" id="data_pagamento" name="data_pagamento" value="{{ hoje.strftime('%Y-%m-%d') }}" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
                         <button type="submit" class="btn-ver" style="background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: underline; padding: 0;">✓ Marcar como pago</button>
                     </form>
+                {% endif %}
                 {% endif %}
             </div>
 

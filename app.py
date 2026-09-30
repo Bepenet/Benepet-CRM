@@ -2,15 +2,16 @@ import os
 import secrets
 import unicodedata
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text, func
+from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash, check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_migrate import Migrate
-from models import db, Usuario, Cliente, Venda, ItemVenda, Prospeccao, HistoricoProspeccao, Vendedor, agora_brasil
+from models import db, Usuario, Cliente, Venda, ItemVenda, ParcelaVenda, Prospeccao, HistoricoProspeccao, Vendedor, agora_brasil
 import backup as backup_mod
 
 app = Flask(__name__)
@@ -80,6 +81,18 @@ def nome_canonico_produto(nome):
 def formatar_moeda(valor):
     """Formata um número no padrão brasileiro: milhar com ponto, decimal com vírgula."""
     return '{:,.2f}'.format(valor or 0).replace(',', 'X').replace('.', ',').replace('X', '.')
+
+def redirecionar_para_origem(destino_padrao):
+    """Volta para a página que originou o POST, aceitando apenas URLs do próprio app.
+
+    O cabeçalho Referer é controlado pelo cliente, então conferimos o host antes de
+    redirecionar para ele — sem isso daria para mandar o usuário para um site externo."""
+    origem = request.referrer
+    if origem:
+        partes = urlparse(origem)
+        if partes.netloc == request.host and url_for('login') not in partes.path:
+            return redirect(origem)
+    return redirect(destino_padrao)
 
 @app.template_filter('moeda')
 def filtro_moeda(valor):
@@ -169,6 +182,19 @@ def montar_link_whatsapp_nf(venda, convertida_de_consignacao=False):
     linhas.append("")
     linhas.append(f"*Total: R$ {formatar_moeda(venda.valor_total)}*")
 
+    if venda.parcelas:
+        total_parcelas = len(venda.parcelas)
+        linhas.append("")
+        linhas.append(f"*Parcelas ({total_parcelas}x):*")
+        for parcela in venda.parcelas:
+            if parcela.paga:
+                situacao = 'PAGA'
+            elif parcela.vencida:
+                situacao = f"VENCIDA em {parcela.vencimento.strftime('%d/%m/%Y')}"
+            else:
+                situacao = f"vence {parcela.vencimento.strftime('%d/%m/%Y')}"
+            linhas.append(f"- {parcela.numero}/{total_parcelas}: R$ {formatar_moeda(parcela.valor)} ({situacao})")
+
     mensagem = "\n".join(linhas)
     return f"https://wa.me/{WHATSAPP_NF_NUMERO}?text={quote(mensagem)}"
 
@@ -203,6 +229,97 @@ def validar_e_normalizar_itens(itens):
         })
 
     return itens_limpos, round(valor_total, 2)
+
+# Opção de prazo que libera o editor de parcelas com vencimento livre por parcela.
+OPCAO_PARCELAS = 'Parcelado (personalizado)'
+
+PRAZOS_PAGAMENTO = [
+    'A Vista (Pix)',
+    'A Vista (Dinheiro)',
+    'Prazo 7 dias',
+    'Prazo 15 dias',
+    'Prazo 20 dias',
+    'Prazo 30 dias',
+    'Parcelado 30/60',
+    'Parcelado 30/45/60',
+    'Parcelado 15/30/45',
+    'Parcelado 15/30/45/60',
+    OPCAO_PARCELAS,
+]
+
+TOLERANCIA_CENTAVOS = 0.01
+
+def validar_e_normalizar_parcelas(parcelas, valor_total):
+    """Valida as parcelas informadas e devolve (lista_normalizada, None) ou (None, erro).
+
+    Cada parcela tem valor e vencimento digitados individualmente e a soma precisa
+    fechar com o total da venda, para o valor em aberto nunca divergir do que foi
+    vendido. Em caso de erro, devolve (None, mensagem_de_erro)."""
+    if not parcelas:
+        return None, "Informe ao menos uma parcela."
+    if len(parcelas) > 60:
+        return None, "A venda não pode ter mais de 60 parcelas."
+
+    parcelas_limpas = []
+    for item in parcelas:
+        try:
+            valor = round(float(item['valor']), 2)
+        except (KeyError, TypeError, ValueError):
+            return None, "Parcela inválida: informe o valor."
+        try:
+            vencimento = datetime.strptime((item.get('vencimento') or '').strip(), '%Y-%m-%d').date()
+        except ValueError:
+            return None, "Parcela inválida: informe a data de vencimento."
+        if valor <= 0:
+            return None, "O valor de cada parcela precisa ser maior que zero."
+        parcelas_limpas.append({'valor': valor, 'vencimento': vencimento})
+
+    parcelas_limpas.sort(key=lambda p: p['vencimento'])
+    soma = round(sum(p['valor'] for p in parcelas_limpas), 2)
+    if abs(soma - round(valor_total, 2)) > TOLERANCIA_CENTAVOS:
+        return None, (f"A soma das parcelas (R$ {formatar_moeda(soma)}) não bate com o "
+                      f"total da venda (R$ {formatar_moeda(valor_total)}).")
+
+    return parcelas_limpas, None
+
+def rotulo_prazo_com_parcelas(quantidade_parcelas):
+    """Descreve o prazo de pagamento de forma legível quando há um plano de parcelas."""
+    if quantidade_parcelas == 1:
+        return 'Parcelado (1 parcela - personalizado)'
+    return f'Parcelado {quantidade_parcelas}x (personalizado)'
+
+def atualizar_pagamento_da_venda(venda):
+    """Mantém paga/data_pagamento da venda coerentes com a situação das parcelas.
+
+    Uma venda com parcelas só é considerada paga quando todas foram quitadas; nesse
+    caso a data do pagamento é a da última parcela paga."""
+    if not venda.parcelas:
+        return
+    if all(p.paga for p in venda.parcelas):
+        venda.paga = True
+        vencimentos_pagos = [p.data_pagamento for p in venda.parcelas if p.data_pagamento]
+        venda.data_pagamento = max(vencimentos_pagos) if vencimentos_pagos else agora_brasil()
+    else:
+        venda.paga = False
+        venda.data_pagamento = None
+
+def aplicar_parcelas(venda, parcelas_normalizadas):
+    """Substitui o plano de parcelas da venda.
+
+    As parcelas que não mudaram (mesmo vencimento e mesmo valor) são recriadas
+    mantendo a baixa já registrada, para não perder um pagamento confirmado."""
+    anteriores = {(p.vencimento, round(p.valor, 2)): p for p in venda.parcelas}
+    venda.parcelas.clear()
+    for numero, dados in enumerate(parcelas_normalizadas, start=1):
+        nova = ParcelaVenda(numero=numero, valor=dados['valor'], vencimento=dados['vencimento'])
+        venda.parcelas.append(nova)
+        anterior = anteriores.get((dados['vencimento'], dados['valor']))
+        if anterior:
+            nova.paga = anterior.paga
+            nova.data_pagamento = anterior.data_pagamento
+    atualizar_pagamento_da_venda(venda)
+    if venda.parcelas:
+        venda.prazo_pagamento = rotulo_prazo_com_parcelas(len(venda.parcelas))
 
 base_uri = os.environ.get('DATABASE_URL')
 if not base_uri and os.path.isdir('/data'):
@@ -627,6 +744,7 @@ def relatorios():
         'comissao': 'Comissão de Vendedores',
         'historico_matriz': 'Histórico de Vendas (Matriz)',
         'proximo_contato': 'Próximo Contato',
+        'parcelas': 'Parcelas a Receber',
     }
     tipo = request.args.get('relatorio', '')
     if tipo not in tipos_validos:
@@ -832,6 +950,41 @@ def relatorios():
         contexto['grupos_matriz'] = lista
         contexto['totais_meses'] = totais_meses
         contexto['total_geral'] = total_geral
+
+    elif tipo == 'parcelas':
+        situacao = request.args.get('situacao', 'pendentes')
+        if situacao not in ('pendentes', 'pagas', 'todas'):
+            situacao = 'pendentes'
+
+        consulta = db.session.query(ParcelaVenda)\
+            .join(Venda, ParcelaVenda.venda_id == Venda.id)\
+            .options(joinedload(ParcelaVenda.venda).joinedload(Venda.cliente))\
+            .filter(Venda.status == 'Confirmada')\
+            .filter(ParcelaVenda.vencimento.between(pp['data_inicio'].date(), pp['data_fim'].date()))
+        if situacao == 'pendentes':
+            consulta = consulta.filter(ParcelaVenda.paga.is_(False))
+        elif situacao == 'pagas':
+            consulta = consulta.filter(ParcelaVenda.paga.is_(True))
+        if vendedor_filtro:
+            consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
+
+        parcelas = consulta.order_by(ParcelaVenda.vencimento, ParcelaVenda.numero).all()
+        pendentes = [p for p in parcelas if not p.paga]
+        vencidas = [p for p in pendentes if p.vencida]
+
+        contexto['situacao_parcelas'] = situacao
+        total_por_venda = {}
+        for parcela in parcelas:
+            total_por_venda[parcela.venda_id] = max(total_por_venda.get(parcela.venda_id, 0), parcela.numero)
+        contexto['parcelas_relatorio'] = [
+            {'parcela': parcela, 'total_na_venda': total_por_venda[parcela.venda_id]}
+            for parcela in parcelas
+        ]
+        contexto['total_parcelas_qtd'] = len(parcelas)
+        contexto['total_a_receber'] = formatar_moeda(sum(p.valor for p in pendentes))
+        contexto['total_vencido'] = formatar_moeda(sum(p.valor for p in vencidas))
+        contexto['total_recebido'] = formatar_moeda(sum(p.valor for p in parcelas if p.paga))
+        contexto['qtd_vencidas'] = len(vencidas)
 
     return render_template('relatorios.html', **contexto)
 
@@ -1116,7 +1269,9 @@ def vendas():
     clientes = sorted(Cliente.query.all(), key=lambda c: c.nome_exibicao or c.nome)
     vendedores = Vendedor.query.order_by(Vendedor.nome).all()
     historico_vendas = Venda.query.order_by(Venda.data.desc()).all()
-    return render_template('vendas.html', clientes=clientes, vendas=historico_vendas, vendedores=vendedores)
+    return render_template('vendas.html', clientes=clientes, vendas=historico_vendas,
+                           vendedores=vendedores, prazos_pagamento=PRAZOS_PAGAMENTO,
+                           opcao_parcelas=OPCAO_PARCELAS)
 
 @app.route('/usuarios', methods=['GET', 'POST'])
 def usuarios():
@@ -1200,6 +1355,15 @@ def salvar_venda_multipla():
     if itens_limpos is None:
         return jsonify({"erro": valor_total}), 400
 
+    parcelas = dados.get('parcelas') or []
+    parcelas_limpas = None
+    if parcelas:
+        parcelas_limpas, erro_parcelas = validar_e_normalizar_parcelas(parcelas, valor_total)
+        if parcelas_limpas is None:
+            return jsonify({"erro": erro_parcelas}), 400
+    elif prazo_pagamento == OPCAO_PARCELAS:
+        return jsonify({"erro": "Informe ao menos uma parcela."}), 400
+
     try:
         nova_venda = Venda(
             cliente_id=cliente_id,
@@ -1224,6 +1388,9 @@ def salvar_venda_multipla():
                 valor_subtotal=item['valor_subtotal']
             )
             db.session.add(novo_item)
+
+        if parcelas_limpas:
+            aplicar_parcelas(nova_venda, parcelas_limpas)
 
         db.session.commit()
 
@@ -1272,6 +1439,10 @@ def duplicar_venda(id):
         'vendedor': venda_origem.vendedor or '',
         'tipo_venda': venda_origem.tipo or 'Normal',
         'emitir_nf': venda_origem.emitir_nf is not False,
+        'parcelas': [
+            {'valor': p.valor, 'vencimento': p.vencimento.strftime('%Y-%m-%d')}
+            for p in venda_origem.parcelas
+        ],
         'itens': [
             {
                 'produto': item.produto,
@@ -1284,7 +1455,9 @@ def duplicar_venda(id):
     }
     return render_template('vendas.html', clientes=clientes, vendas=[],
                            vendedores=vendedores, duplicar_dados=dados,
-                           venda_origem_id=venda_origem.id)
+                           venda_origem_id=venda_origem.id,
+                           prazos_pagamento=PRAZOS_PAGAMENTO,
+                           opcao_parcelas=OPCAO_PARCELAS)
 
 @app.route('/vendas/<int:id>/editar', methods=['GET', 'POST'])
 def editar_venda(id):
@@ -1308,6 +1481,17 @@ def editar_venda(id):
         if itens_limpos is None:
             return jsonify({"erro": valor_total}), 400
 
+        parcelas = dados.get('parcelas')
+        parcelas_limpas = None
+        if parcelas is not None:
+            # Lista vazia remove o plano de parcelas; lista com itens substitui o plano.
+            if parcelas:
+                parcelas_limpas, erro_parcelas = validar_e_normalizar_parcelas(parcelas, valor_total)
+                if parcelas_limpas is None:
+                    return jsonify({"erro": erro_parcelas}), 400
+            else:
+                parcelas_limpas = []
+
         data_venda = datetime.strptime(data_str, '%Y-%m-%d') if data_str else venda.data
 
         venda.cliente_id = cliente_id
@@ -1329,21 +1513,26 @@ def editar_venda(id):
             db.session.delete(item)
         db.session.flush()
 
-        for item in itens:
+        for item in itens_limpos:
             db.session.add(ItemVenda(
                 venda_id=venda.id,
                 produto=item['produto'],
-                quantidade=int(item['quantidade']),
-                valor_unitario=float(item['valor_unitario']),
-                valor_subtotal=float(item['valor_subtotal'])
+                quantidade=item['quantidade'],
+                valor_unitario=item['valor_unitario'],
+                valor_subtotal=item['valor_subtotal']
             ))
+
+        if parcelas_limpas is not None:
+            aplicar_parcelas(venda, parcelas_limpas)
 
         db.session.commit()
         return jsonify({"mensagem": "Venda atualizada!"}), 200
 
     clientes = sorted(Cliente.query.all(), key=lambda c: c.nome_exibicao or c.nome)
     vendedores = Vendedor.query.order_by(Vendedor.nome).all()
-    return render_template('editar_venda.html', venda=venda, clientes=clientes, vendedores=vendedores)
+    return render_template('editar_venda.html', venda=venda, clientes=clientes,
+                           vendedores=vendedores, prazos_pagamento=PRAZOS_PAGAMENTO,
+                           opcao_parcelas=OPCAO_PARCELAS)
 
 @app.route('/vendas/<int:id>/excluir', methods=['POST'])
 def excluir_venda(id):
@@ -1362,12 +1551,53 @@ def excluir_venda(id):
     flash(f'Venda #{id} excluída com sucesso!', 'sucesso')
     return redirect(url_for('relatorio_vendas'))
 
+@app.route('/parcelas/<int:id_parcela>/baixar', methods=['POST'])
+def baixar_parcela(id_parcela):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    parcela = ParcelaVenda.query.get_or_404(id_parcela)
+    venda = parcela.venda
+    data_pagamento_str = request.form.get('data_pagamento')
+    if data_pagamento_str:
+        try:
+            parcela.data_pagamento = datetime.strptime(data_pagamento_str, '%Y-%m-%d')
+        except ValueError:
+            parcela.data_pagamento = agora_brasil()
+    else:
+        parcela.data_pagamento = agora_brasil()
+    parcela.paga = True
+    atualizar_pagamento_da_venda(venda)
+    db.session.commit()
+    flash(f'Parcela {parcela.numero} da venda #{venda.id} marcada como paga!', 'sucesso')
+    return redirecionar_para_origem(url_for('detalhar_venda', id=venda.id))
+
+@app.route('/parcelas/<int:id_parcela>/reverter', methods=['POST'])
+def reverter_parcela(id_parcela):
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    parcela = ParcelaVenda.query.get_or_404(id_parcela)
+    venda = parcela.venda
+    parcela.paga = False
+    parcela.data_pagamento = None
+    atualizar_pagamento_da_venda(venda)
+    db.session.commit()
+    flash(f'Pagamento da parcela {parcela.numero} da venda #{venda.id} revertido!', 'sucesso')
+    return redirecionar_para_origem(url_for('detalhar_venda', id=venda.id))
+
 @app.route('/vendas/<int:id>/marcar_paga', methods=['POST'])
 def marcar_venda_paga(id):
     if not usuario_esta_logado():
         return redirect(url_for('login'))
 
     venda = Venda.query.get_or_404(id)
+    destino = url_for('detalhar_venda', id=venda.id)
+
+    if venda.parcelas:
+        flash(f'A venda #{id} tem {len(venda.parcelas)} parcelas. '
+              'Dê baixa em cada parcela individualmente.', 'erro')
+        return redirect(destino)
 
     if request.form.get('desfazer'):
         venda.paga = False
@@ -1376,17 +1606,17 @@ def marcar_venda_paga(id):
     else:
         data_pagamento_str = request.form.get('data_pagamento')
         if data_pagamento_str:
-            venda.data_pagamento = datetime.strptime(data_pagamento_str, '%Y-%m-%d')
+            try:
+                venda.data_pagamento = datetime.strptime(data_pagamento_str, '%Y-%m-%d')
+            except ValueError:
+                venda.data_pagamento = agora_brasil()
         else:
             venda.data_pagamento = agora_brasil()
         venda.paga = True
         flash(f'Venda #{id} marcada como paga!', 'sucesso')
     db.session.commit()
 
-    destino = request.referrer or url_for('relatorio_vendas')
-    if destino and 'login' not in destino and url_for('login') not in destino:
-        return redirect(destino)
-    return redirect(url_for('relatorio_vendas'))
+    return redirecionar_para_origem(destino)
 
 @app.route('/relatorios/comissao')
 def relatorio_comissao():

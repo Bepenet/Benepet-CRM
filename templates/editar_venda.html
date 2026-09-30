@@ -107,12 +107,11 @@
             </div>
             <div style="flex: 1;">
                 <label style="display:block; margin-bottom:5px; font-weight:bold;">Prazo de Pagamento:</label>
-                {% set prazos = ['A Vista (Pix)', 'A Vista (Dinheiro)', 'Prazo 7 dias', 'Prazo 15 dias', 'Prazo 20 dias', 'Prazo 30 dias', 'Parcelado 30/60', 'Parcelado 30/45/60', 'Parcelado 15/30/45', 'Parcelado 15/30/45/60'] %}
-                <select id="prazo_pagamento" style="width:100%; padding:8px;">
-                    {% if venda.prazo_pagamento and venda.prazo_pagamento not in prazos %}
+                <select id="prazo_pagamento" style="width:100%; padding:8px;" onchange="alternarParcelas()">
+                    {% if venda.prazo_pagamento and venda.prazo_pagamento not in prazos_pagamento %}
                         <option value="{{ venda.prazo_pagamento }}" selected>{{ venda.prazo_pagamento }}</option>
                     {% endif %}
-                    {% for p in prazos %}
+                    {% for p in prazos_pagamento %}
                         <option value="{{ p }}" {% if venda.prazo_pagamento == p %}selected{% endif %}>{{ p }}</option>
                     {% endfor %}
                 </select>
@@ -182,6 +181,44 @@
             <h3 style="margin: 0;">Total da Venda: <span id="total_geral" style="color: #28a745;">R$ 0,00</span></h3>
         </div>
 
+        <div id="bloco_parcelas" style="display:none; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 18px 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 6px; font-size: 17px; color: #14532d;">💳 Parcelas com vencimento individual</h3>
+            <p style="margin-bottom: 14px; font-size: 13px; color: #166534;">
+                Ajuste o valor e a data de vencimento de cada parcela. Parcelas que não mudarem mantêm a baixa já registrada.
+            </p>
+
+            <div class="linha-item" style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 14px; flex-wrap: wrap;">
+                <div>
+                    <label for="qtd_parcelas" style="display:block; margin-bottom:4px; font-size: 13px; font-weight:bold;">Gerar parcelas iguais:</label>
+                    <input type="number" id="qtd_parcelas" min="1" max="60" value="2" style="padding: 8px; width: 90px;">
+                </div>
+                <button type="button" onclick="gerarParcelas()" style="background: #16a34a; color: white; border: none; padding: 9px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">Gerar</button>
+                <button type="button" onclick="adicionarParcela()" style="background: white; color: #166534; border: 1px solid #16a34a; padding: 9px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">+ Adicionar parcela</button>
+            </div>
+
+            <div class="tabela-scroll">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #dcfce7; text-align: left;">
+                        <th style="padding: 8px;">Parcela</th>
+                        <th style="padding: 8px;">Vencimento</th>
+                        <th style="padding: 8px;">Valor (R$)</th>
+                        <th style="padding: 8px;">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="corpo_parcelas"></tbody>
+                <tfoot>
+                    <tr style="background: #f0fdf4; font-weight: bold;">
+                        <td colspan="2" style="padding: 10px;">Total das parcelas</td>
+                        <td id="total_parcelas" colspan="2" style="padding: 10px;">R$ 0,00</td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+
+            <p id="aviso_soma_parcelas" style="margin-top: 10px; font-size: 13px; font-weight: bold;"></p>
+        </div>
+
         <button type="button" onclick="salvarAlteracoes()" style="background: #28a745; color: white; border: none; padding: 12px 25px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%;">Salvar Alterações</button>
 
         <br><br>
@@ -201,8 +238,15 @@
             { produto: {{ item.produto|tojson }}, quantidade: {{ item.quantidade }}, valor_unitario: {{ item.valor_unitario }}, valor_subtotal: {{ item.valor_subtotal }} },
             {% endfor %}
         ];
+        const OPCAO_PARCELAS = {{ opcao_parcelas | tojson }};
+        let parcelas = [
+            {% for parcela in venda.parcelas %}
+            { vencimento: {{ parcela.vencimento.strftime('%Y-%m-%d') | tojson }}, valor: {{ parcela.valor }} },
+            {% endfor %}
+        ];
 
         atualizarTabela();
+        alternarParcelas();
 
         function adicionarAoCarrinho() {
             const produto = document.getElementById('prod_nome').value;
@@ -248,6 +292,151 @@
             });
 
             document.getElementById('total_geral').innerText = `R$ ${total.toFixed(2)}`;
+            atualizarTotalParcelas();
+        }
+
+        function arredondar(valor) {
+            return Math.round(valor * 100) / 100;
+        }
+
+        function totalCarrinho() {
+            return arredondar(carrinho.reduce((soma, item) => soma + item.valor_subtotal, 0));
+        }
+
+        function somarParcelas() {
+            return arredondar(parcelas.reduce((soma, p) => soma + (parseFloat(p.valor) || 0), 0));
+        }
+
+        function parcelasEstaoAtivas() {
+            return document.getElementById('prazo_pagamento').value === OPCAO_PARCELAS || parcelas.length > 0;
+        }
+
+        function alternarParcelas() {
+            const bloco = document.getElementById('bloco_parcelas');
+            bloco.style.display = parcelasEstaoAtivas() ? 'block' : 'none';
+            desenharParcelas();
+        }
+
+        function somarDias(dataIso, dias) {
+            const data = new Date(dataIso + 'T12:00:00');
+            data.setDate(data.getDate() + dias);
+            return data.toISOString().substring(0, 10);
+        }
+
+        function gerarParcelas() {
+            const quantidade = parseInt(document.getElementById('qtd_parcelas').value);
+            if (!quantidade || quantidade < 1) {
+                alert('Informe quantas parcelas quer gerar.');
+                return;
+            }
+            const total = totalCarrinho();
+            if (total <= 0) {
+                alert('A venda precisa ter itens antes de gerar as parcelas.');
+                return;
+            }
+            const dataBase = document.getElementById('data_venda').value || new Date().toISOString().substring(0, 10);
+            const valorIgual = Math.floor((total / quantidade) * 100) / 100;
+            const novas = [];
+            let acumulado = 0;
+            for (let i = 0; i < quantidade; i++) {
+                const valor = (i === quantidade - 1) ? arredondar(total - acumulado) : valorIgual;
+                acumulado = arredondar(acumulado + valor);
+                novas.push({ vencimento: somarDias(dataBase, i * 30), valor: valor });
+            }
+            parcelas = novas;
+            desenharParcelas();
+        }
+
+        function adicionarParcela() {
+            const dataBase = document.getElementById('data_venda').value || new Date().toISOString().substring(0, 10);
+            const jaInformado = somarParcelas();
+            const restante = arredondar(totalCarrinho() - jaInformado);
+            parcelas.push({
+                vencimento: somarDias(dataBase, parcelas.length * 30),
+                valor: restante > 0 ? restante : 0
+            });
+            desenharParcelas();
+        }
+
+        function atualizarParcela(indice, campo, valor) {
+            parcelas[indice][campo] = campo === 'valor' ? (parseFloat(valor) || 0) : valor;
+            atualizarTotalParcelas();
+        }
+
+        function removerParcela(indice) {
+            parcelas.splice(indice, 1);
+            desenharParcelas();
+        }
+
+        function desenharParcelas() {
+            const tbody = document.getElementById('corpo_parcelas');
+            tbody.innerHTML = '';
+            parcelas.forEach((parcela, indice) => {
+                tbody.innerHTML += `
+                    <tr style="border-bottom: 1px solid #bbf7d0;">
+                        <td style="padding: 8px; font-weight: bold;">${indice + 1}/${parcelas.length}</td>
+                        <td style="padding: 8px;"><input type="date" value="${parcela.vencimento || ''}" onchange="atualizarParcela(${indice}, 'vencimento', this.value)" style="padding: 7px; width: 100%;"></td>
+                        <td style="padding: 8px;"><input type="number" step="0.01" value="${parcela.valor || ''}" oninput="atualizarParcela(${indice}, 'valor', this.value)" style="padding: 7px; width: 100%;"></td>
+                        <td style="padding: 8px;"><button type="button" style="background:#dc3545; color:white; border:none; padding:5px 9px; border-radius:3px; cursor:pointer;" onclick="removerParcela(${indice})">Remover</button></td>
+                    </tr>
+                `;
+            });
+            if (parcelas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 14px; color: #166534; font-size: 13px;">Nenhuma parcela informada ainda.</td></tr>';
+            }
+            atualizarTotalParcelas();
+        }
+
+        function atualizarTotalParcelas() {
+            const soma = somarParcelas();
+            document.getElementById('total_parcelas').innerText = `R$ ${soma.toFixed(2)}`;
+            const aviso = document.getElementById('aviso_soma_parcelas');
+            if (!parcelasEstaoAtivas()) {
+                aviso.innerText = '';
+                return;
+            }
+            const total = totalCarrinho();
+            const falta = arredondar(total - soma);
+            if (parcelas.length === 0) {
+                aviso.innerText = '⚠️ Informe as parcelas com valor e vencimento.';
+                aviso.style.color = '#b45309';
+            } else if (falta > 0.01) {
+                aviso.innerText = `⚠️ Faltam R$ ${falta.toFixed(2)} para completar o total da venda.`;
+                aviso.style.color = '#b45309';
+            } else if (falta < -0.01) {
+                aviso.innerText = `⚠️ As parcelas passam R$ ${Math.abs(falta).toFixed(2)} do total da venda.`;
+                aviso.style.color = '#b91c1c';
+            } else {
+                aviso.innerText = '✅ Soma das parcelas confere com o total da venda.';
+                aviso.style.color = '#15803d';
+            }
+        }
+
+        function validarParcelas() {
+            if (!parcelasEstaoAtivas()) {
+                return true;
+            }
+            if (parcelas.length === 0) {
+                alert('Informe ao menos uma parcela.');
+                return false;
+            }
+            for (const parcela of parcelas) {
+                if (!parcela.vencimento) {
+                    alert('Preencha a data de vencimento de todas as parcelas.');
+                    return false;
+                }
+                if (!(parseFloat(parcela.valor) > 0)) {
+                    alert('O valor de cada parcela precisa ser maior que zero.');
+                    return false;
+                }
+            }
+            const soma = somarParcelas();
+            const total = totalCarrinho();
+            if (Math.abs(soma - total) > 0.01) {
+                alert(`A soma das parcelas (R$ ${soma.toFixed(2)}) não bate com o total da venda (R$ ${total.toFixed(2)}).`);
+                return false;
+            }
+            return true;
         }
 
         function atualizarTipoVenda() {
@@ -262,6 +451,9 @@
                 alert("A venda precisa ter pelo menos um item!");
                 return;
             }
+            if (!validarParcelas()) {
+                return;
+            }
 
             const payload = {
                 cliente_id: document.getElementById('cliente_id').value,
@@ -269,6 +461,7 @@
                 valor_total: carrinho.reduce((sum, item) => sum + item.valor_subtotal, 0),
                 itens: carrinho,
                 prazo_pagamento: document.getElementById('prazo_pagamento').value,
+                parcelas: parcelas,
                 tipo_venda: document.querySelector('input[name="tipo_venda"]:checked').value,
                 status: document.getElementById('status_venda').value,
                 vendedor: document.getElementById('vendedor').value,

@@ -115,6 +115,26 @@ class Venda(db.Model):
             return self.data_confirmacao
         return self.data
 
+    @property
+    def parcelada(self):
+        """True quando a venda foi registrada com um plano de parcelas."""
+        return bool(self.parcelas)
+
+    @property
+    def valor_parcelado(self):
+        """Soma de todas as parcelas da venda."""
+        return round(sum(p.valor for p in self.parcelas), 2)
+
+    @property
+    def valor_em_aberto(self):
+        """Soma das parcelas que ainda não foram pagas."""
+        return round(sum(p.valor for p in self.parcelas if not p.paga), 2)
+
+    @property
+    def parcelas_pendentes(self):
+        """Quantas parcelas ainda estão em aberto."""
+        return sum(1 for p in self.parcelas if not p.paga)
+
 class ItemVenda(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     venda_id = db.Column(db.Integer, db.ForeignKey('venda.id'), nullable=False)
@@ -124,6 +144,31 @@ class ItemVenda(db.Model):
     valor_subtotal = db.Column(db.Float, nullable=False)
 
     venda = db.relationship('Venda', backref=db.backref('itens', lazy=True))
+
+class ParcelaVenda(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    venda_id = db.Column(db.Integer, db.ForeignKey('venda.id'), nullable=False)
+    numero = db.Column(db.Integer, nullable=False)  # ordem de exibição (1..N)
+    valor = db.Column(db.Float, nullable=False)
+    vencimento = db.Column(db.Date, nullable=False, index=True)  # o relatório filtra por vencimento
+    paga = db.Column(db.Boolean, default=False)
+    data_pagamento = db.Column(db.DateTime)  # quando a parcela foi paga
+
+    venda = db.relationship('Venda', backref=db.backref(
+        'parcelas', lazy=True, order_by='ParcelaVenda.numero',
+        cascade='all, delete-orphan'))
+
+    @property
+    def vencida(self):
+        """True se o vencimento já passou e a parcela ainda não foi paga."""
+        return not self.paga and self.vencimento < agora_brasil().date()
+
+    @property
+    def dias_atraso(self):
+        """Quantos dias a parcela está vencida (0 se não estiver vencida)."""
+        if not self.vencida:
+            return 0
+        return (agora_brasil().date() - self.vencimento).days
 
 class Prospeccao(db.Model):
     id = db.Column(db.Integer, primary_key=True)

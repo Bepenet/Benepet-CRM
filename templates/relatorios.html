@@ -41,6 +41,7 @@
         .badge-pendente { background: #fef3c7; color: #92400e; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
         .badge-pago { background: #d4edda; color: #155724; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
         .badge-aguardando { background: #fef3c7; color: #92400e; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
+        .badge-vencida { background: #fee2e2; color: #991b1b; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-block; }
         .btn-ver { background: #007bff; color: white; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block; }
         .btn-ver:hover { background: #0056b3; }
         .btn-editar { color: #b45309; text-decoration: none; font-size: 13px; font-weight: 500; }
@@ -192,6 +193,15 @@
                     {% for c in clientes %}
                     <option value="{{ c.id }}" {% if cliente_id == c.id %}selected{% endif %}>{{ c.nome_exibicao }}</option>
                     {% endfor %}
+                </select>
+            </div>
+
+            <div class="grupo-filtro" id="grupo-situacao">
+                <label for="situacao">Situação</label>
+                <select id="situacao" name="situacao">
+                    <option value="pendentes" {% if situacao_parcelas != 'pagas' and situacao_parcelas != 'todas' %}selected{% endif %}>Somente pendentes</option>
+                    <option value="pagas" {% if situacao_parcelas == 'pagas' %}selected{% endif %}>Somente pagas</option>
+                    <option value="todas" {% if situacao_parcelas == 'todas' %}selected{% endif %}>Todas</option>
                 </select>
             </div>
 
@@ -575,6 +585,74 @@
                 </tbody>
             </table>
         </div>
+
+        {% elif tipo == 'parcelas' %}
+        <div class="data-section">
+            <h3 class="section-title">💳 Parcelas a Receber - {{ rotulo_periodo }}</h3>
+            <div class="resumo">
+                <div class="resumo-item">
+                    <span>Parcelas no Período</span>
+                    <strong>{{ total_parcelas_qtd }}</strong>
+                </div>
+                <div class="resumo-item">
+                    <span>A Receber</span>
+                    <strong style="color: #b45309;">R$ {{ total_a_receber }}</strong>
+                </div>
+                <div class="resumo-item">
+                    <span>Vencidas ({{ qtd_vencidas }})</span>
+                    <strong style="color: #b91c1c;">R$ {{ total_vencido }}</strong>
+                </div>
+                <div class="resumo-item">
+                    <span>Recebido</span>
+                    <strong style="color: #155724;">R$ {{ total_recebido }}</strong>
+                </div>
+            </div>
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Venda</th>
+                        <th>Cliente</th>
+                        <th>Parcela</th>
+                        <th>Vencimento</th>
+                        <th>Valor</th>
+                        <th>Situação</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in parcelas_relatorio %}
+                    {% set parcela = linha.parcela %}
+                    <tr>
+                        <td><a href="/venda/detalhar/{{ parcela.venda_id }}" style="color: #2563eb;">#{{ parcela.venda_id }}</a></td>
+                        <td style="font-weight: 600; color: #0f172a;">{{ parcela.venda.cliente.nome_exibicao }}</td>
+                        <td><span class="badge">{{ parcela.numero }}/{{ linha.total_na_venda }}</span></td>
+                        <td>{{ parcela.vencimento.strftime('%d/%m/%Y') }}</td>
+                        <td>R$ {{ parcela.valor | moeda }}</td>
+                        <td>
+                            {% if parcela.paga %}
+                                <span class="badge-pago">Paga{% if parcela.data_pagamento %} em {{ parcela.data_pagamento.strftime('%d/%m/%Y') }}{% endif %}</span>
+                            {% elif parcela.vencida %}
+                                <span class="badge-vencida">Vencida há {{ parcela.dias_atraso }} dia{{ 's' if parcela.dias_atraso != 1 else '' }}</span>
+                            {% else %}
+                                <span class="badge-aguardando">A vencer</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if parcela.paga %}
+                                <form action="/parcelas/{{ parcela.id }}/reverter" method="POST" style="display:inline;" onsubmit="return confirm('Reverter a baixa da parcela {{ parcela.numero }} da venda #{{ parcela.venda_id }}?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn-excluir">Reverter</button></form>
+                            {% else %}
+                                <form action="/parcelas/{{ parcela.id }}/baixar" method="POST" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn-ver">Dar baixa</button></form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="aviso-vazio">Nenhuma parcela encontrada no período selecionado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% endif %}
     </main>
 
@@ -594,14 +672,16 @@
 
     function atualizarFiltros() {
         var tipo = document.getElementById('relatorio').value;
-        var usaPeriodo = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_cliente', 'vendas_por_mes', 'quantidade_produtos', 'comissao'].indexOf(tipo) !== -1;
+        var usaPeriodo = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_cliente', 'vendas_por_mes', 'quantidade_produtos', 'comissao', 'parcelas'].indexOf(tipo) !== -1;
         var usaMatriz = tipo === 'historico_matriz';
-        var usaVendedor = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_mes', 'quantidade_produtos', 'comissao', 'historico_matriz'].indexOf(tipo) !== -1;
+        var usaVendedor = ['historico_vendas', 'vendas_por_vendedor', 'vendas_por_mes', 'quantidade_produtos', 'comissao', 'historico_matriz', 'parcelas'].indexOf(tipo) !== -1;
         var usaCliente = tipo === 'vendas_por_cliente';
+        var usaSituacao = tipo === 'parcelas';
 
         document.getElementById('grupo-periodo').style.display = usaPeriodo ? 'flex' : 'none';
         document.getElementById('grupo-vendedor').style.display = usaVendedor ? 'flex' : 'none';
         document.getElementById('grupo-cliente').style.display = usaCliente ? 'flex' : 'none';
+        document.getElementById('grupo-situacao').style.display = usaSituacao ? 'flex' : 'none';
 
         if (usaPeriodo) {
             alternarPeriodo();
