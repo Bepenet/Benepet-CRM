@@ -730,11 +730,12 @@ def dashboard():
                            top_produtos_valores=top_produtos_valores,
                            usuario_logado=session['usuario'])
 
-@app.route('/relatorios')
-def relatorios():
-    if not usuario_esta_logado():
-        return redirect(url_for('login'))
+def montar_contexto_relatorio(exportar=False):
+    """Monta o contexto (dados + filtros) de um relatório a partir da query string.
 
+    É usado tanto pela tela HTML quanto pela exportação para Excel, garantindo que
+    ambos mostrem exatamente os mesmos dados. Quando `exportar=True`, a paginação
+    é ignorada para que a planilha traga todas as linhas do período."""
     tipos_validos = {
         'historico_vendas': 'Histórico de Vendas',
         'vendas_por_vendedor': 'Vendas por Vendedor',
@@ -773,15 +774,18 @@ def relatorios():
     if tipo == 'proximo_contato':
         todos_clientes = Cliente.query.all()
         contexto['clientes_contato'] = sorted(todos_clientes, key=lambda c: c.proximo_contato)
-        return render_template('relatorios.html', **contexto)
+        return contexto
 
     if tipo == 'historico_vendas':
-        pagina = request.args.get('pagina', 1, type=int)
         consulta = Venda.query.filter(data_efetiva.between(pp['data_inicio'], pp['data_fim']))
         if vendedor_filtro:
             consulta = consulta.filter(Venda.vendedor == vendedor_filtro)
         consulta = consulta.order_by(Venda.data.desc())
-        contexto['paginacao'] = consulta.paginate(page=pagina, per_page=25, error_out=False)
+        if exportar:
+            contexto['vendas_export'] = consulta.all()
+        else:
+            pagina = request.args.get('pagina', 1, type=int)
+            contexto['paginacao'] = consulta.paginate(page=pagina, per_page=25, error_out=False)
 
     elif tipo == 'vendas_por_vendedor':
         vendedor_expr = func.coalesce(func.nullif(Venda.vendedor, ''),
@@ -986,7 +990,40 @@ def relatorios():
         contexto['total_recebido'] = formatar_moeda(sum(p.valor for p in parcelas if p.paga))
         contexto['qtd_vencidas'] = len(vencidas)
 
-    return render_template('relatorios.html', **contexto)
+    return contexto
+
+
+@app.route('/relatorios')
+def relatorios():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+    return render_template('relatorios.html', **montar_contexto_relatorio())
+
+
+@app.route('/relatorios/exportar')
+def exportar_relatorio():
+    if not usuario_esta_logado():
+        return redirect(url_for('login'))
+
+    contexto = montar_contexto_relatorio(exportar=True)
+    try:
+        import excel_relatorios
+        arquivo = excel_relatorios.gerar_planilha(contexto)
+    except ValueError as e:
+        flash(str(e), 'erro')
+        return redirect(url_for('relatorios'))
+    except Exception as e:
+        print(f'Erro ao exportar relatório: {e}')
+        flash(f'Não foi possível gerar a planilha: {e}', 'erro')
+        return redirect(url_for('relatorios'))
+
+    nome = f"relatorio_{contexto.get('tipo') or 'petcrm'}_{agora_brasil().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return send_file(
+        arquivo,
+        as_attachment=True,
+        download_name=nome,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
 
 @app.route('/relatorios/proximo-contato')
 def relatorio_proximo_contato():

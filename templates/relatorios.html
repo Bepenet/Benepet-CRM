@@ -68,6 +68,15 @@
         .pagina-btn { background: #2563eb; color: white; border: none; padding: 9px 18px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; text-decoration: none; }
         .pagina-btn:hover { background: #1d4ed8; }
 
+        .btn-imprimir { float: right; }
+        .btn-exportar {
+            float: right; margin-right: 10px; background: #16a34a; color: white;
+            border: none; padding: 10px 18px; border-radius: 6px; font-size: 14px;
+            font-weight: bold; cursor: pointer; text-decoration: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .btn-exportar:hover { background: #15803d; }
+
         .mobile-topbar { display: none; }
         .overlay-menu { display: none; }
 
@@ -119,6 +128,9 @@
     <main class="main-content">
         {% include 'cabecalho_impressao.html' %}
         <button type="button" class="btn-imprimir" onclick="window.print()">🖨️ Imprimir</button>
+        {% if tipo %}
+        <a class="btn-exportar no-print" href="{{ url_for('exportar_relatorio', **request.args.to_dict()) }}">📊 Exportar Excel</a>
+        {% endif %}
 
         <h2 class="header-title">📄 Relatórios</h2>
 
