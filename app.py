@@ -321,14 +321,37 @@ def aplicar_parcelas(venda, parcelas_normalizadas):
     if venda.parcelas:
         venda.prazo_pagamento = rotulo_prazo_com_parcelas(len(venda.parcelas))
 
-base_uri = os.environ.get('DATABASE_URL')
+def normalizar_uri_banco(uri):
+    """Corrige a URL do banco vinda do ambiente.
+
+    Às vezes a DATABASE_URL chega com o host truncado, só com o id do banco
+    (ex.: dpg-xxxx) sem o domínio do provedor. Sem o domínio o hostname não
+    resolve (Name or service not known). Aqui completamos com o sufixo do
+    Render quando detectamos que ele está faltando."""
+    if not uri:
+        return uri
+    if uri.startswith("postgres://"):
+        uri = uri.replace("postgres://", "postgresql://", 1)
+    if uri.startswith("postgresql://"):
+        partes = urlparse(uri)
+        host = partes.hostname or ''
+        if host.startswith('dpg-') and '.' not in host:
+            netloc = partes.netloc
+            if '@' in netloc:
+                credencial, resto = netloc.rsplit('@', 1)
+                host_corrigido = host + '.oregon-postgres.render.com'
+                porta = ''
+                if resto.startswith(host + ':'):
+                    porta = resto[len(host):].split('/', 1)[0]
+                uri = partes._replace(netloc=credencial + '@' + host_corrigido + porta).geturl()
+    return uri
+
+
+base_uri = normalizar_uri_banco(os.environ.get('DATABASE_URL'))
 if not base_uri and os.path.isdir('/data'):
     base_uri = 'sqlite:////data/petcrm.db'
 if not base_uri:
     base_uri = 'sqlite:///petcrm.db'
-
-if base_uri.startswith("postgres://"):
-    base_uri = base_uri.replace("postgres://", "postgresql://", 1)
 
 if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
     if "?" in base_uri:

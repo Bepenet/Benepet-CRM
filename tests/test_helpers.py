@@ -1,4 +1,9 @@
-from app import formatar_moeda, nome_canonico_produto, validar_e_normalizar_itens
+from app import (
+    formatar_moeda,
+    nome_canonico_produto,
+    normalizar_uri_banco,
+    validar_e_normalizar_itens,
+)
 from models import agora_brasil
 
 
@@ -39,3 +44,20 @@ def test_agora_brasil_e_naive_local():
     import datetime
     diff = abs((datetime.datetime.now() - agora).total_seconds())
     assert diff < 3600  # tolerância ampla para o fuso, mas longe de 12h
+
+
+def test_normalizar_uri_banco_completa_dominio_render():
+    assert normalizar_uri_banco(
+        'postgres://u:p@dpg-dalg4k65vjqs73f9gmug-a:5432/db'
+    ) == 'postgresql://u:p@dpg-dalg4k65vjqs73f9gmug-a.oregon-postgres.render.com:5432/db'
+    assert normalizar_uri_banco(
+        'postgresql://u:p@dpg-dalg4k65vjqs73f9gmug-a/db'
+    ) == 'postgresql://u:p@dpg-dalg4k65vjqs73f9gmug-a.oregon-postgres.render.com/db'
+
+
+def test_normalizar_uri_banco_nao_mexe_em_host_completo():
+    completa = 'postgresql://u:p@dpg-abc-a.oregon-postgres.render.com/db'
+    assert normalizar_uri_banco(completa) == completa
+    assert normalizar_uri_banco('sqlite:///petcrm.db') == 'sqlite:///petcrm.db'
+    assert normalizar_uri_banco('') == ''
+    assert normalizar_uri_banco(None) is None
