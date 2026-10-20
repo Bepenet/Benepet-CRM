@@ -6,6 +6,7 @@ from urllib.parse import quote, urlparse
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file
 from datetime import datetime, timedelta
 from sqlalchemy import inspect, text, func
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash, check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -362,6 +363,18 @@ if base_uri.startswith("postgresql://") and "sslmode" not in base_uri:
 app.config['SQLALCHEMY_DATABASE_URI'] = base_uri
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+if base_uri.startswith('postgresql://'):
+    # O Postgres do Render derruba conexões ociosas; sem isso o SQLAlchemy tenta
+    # reusar uma conexão morta e cai em "SSL connection has been closed unexpectedly".
+    # pool_pre_ping testa a conexão antes de usar e pool_recycle a recicla antes
+    # que o servidor a encerre.
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 180,
+        'pool_size': 5,
+        'max_overflow': 5,
+    }
+
 db.init_app(app)
 migrate = Migrate(app, db)
 
@@ -580,14 +593,35 @@ def buscar_usuario_por_login(login):
     if not alvo:
         return None
 
-    user = Usuario.query.filter_by(login=alvo).first()
+    user = consulta_com_retry(lambda: Usuario.query.filter_by(login=alvo).first())
     if user:
         return user
 
-    for candidato in Usuario.query.filter(Usuario.login.isnot(None)).all():
+    candidatos = consulta_com_retry(
+        lambda: Usuario.query.filter(Usuario.login.isnot(None)).all())
+    for candidato in candidatos:
         if (candidato.login or '').strip() == alvo:
             return candidato
     return None
+
+
+def consulta_com_retry(consulta, tentativas=3):
+    """Executa uma consulta reexecutando em falhas transitórias de conexão.
+
+    O Postgres do Render às vezes encerra a conexão no meio da requisição
+    (SSL connection has been closed unexpectedly). Como o pool já descarta a
+    conexão ruim, reexecutar a consulta costuma resolver na hora."""
+    ultimo_erro = None
+    for tentativa in range(tentativas):
+        try:
+            return consulta()
+        except OperationalError as erro:
+            ultimo_erro = erro
+            db.session.rollback()
+            db.session.remove()
+            if tentativa < tentativas - 1:
+                continue
+    raise ultimo_erro
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

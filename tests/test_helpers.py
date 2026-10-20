@@ -1,10 +1,12 @@
 from app import (
+    consulta_com_retry,
     formatar_moeda,
     nome_canonico_produto,
     normalizar_uri_banco,
     validar_e_normalizar_itens,
 )
 from models import agora_brasil
+from sqlalchemy.exc import OperationalError
 
 
 def test_formatar_moeda():
@@ -61,3 +63,27 @@ def test_normalizar_uri_banco_nao_mexe_em_host_completo():
     assert normalizar_uri_banco('sqlite:///petcrm.db') == 'sqlite:///petcrm.db'
     assert normalizar_uri_banco('') == ''
     assert normalizar_uri_banco(None) is None
+
+
+def test_consulta_com_retry_reexecuta_apos_falha_transitoria(app):
+    chamadas = {'n': 0}
+
+    def consulta():
+        chamadas['n'] += 1
+        if chamadas['n'] < 2:
+            raise OperationalError('SELECT 1', {}, Exception('SSL connection has been closed'))
+        return 'ok'
+
+    with app.app_context():
+        assert consulta_com_retry(consulta) == 'ok'
+    assert chamadas['n'] == 2
+
+
+def test_consulta_com_retry_propaga_apos_esgotar_tentativas(app):
+    def consulta():
+        raise OperationalError('SELECT 1', {}, Exception('SSL connection has been closed'))
+
+    import pytest
+    with app.app_context():
+        with pytest.raises(OperationalError):
+            consulta_com_retry(consulta, tentativas=2)
